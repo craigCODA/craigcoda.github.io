@@ -65,6 +65,32 @@ function assertWarehouseDisclosure(markup) {
   return { expectedHeadings, requiredBoundaryStatements };
 }
 
+function assertWorkspaceClaims(markup) {
+  const visibleText = ppkVisibleText(markup);
+
+  for (const claim of [
+    /saved M2A room checkpoint/i,
+    /placeholder application screen/i,
+    /live generic Windows surface streaming was not complete at this checkpoint/i,
+    /World Core owns durable truth/i,
+    /host-controlled authority/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+
+  assert.match(
+    visibleText,
+    /The large application screen is a placeholder in this saved M2A room checkpoint; live generic Windows surface streaming was not complete at this checkpoint\./
+  );
+  for (const overclaimPattern of [
+    /\b(?:completed?|finished|fully\s+operational|operational|production[- ]ready|working|available)\s+(?:live\s+)?(?:generic\s+)?(?:Windows\s+)?(?:surface\s+)?streaming\b/i,
+    /\b(?:live\s+)?(?:generic\s+)?(?:Windows\s+)?(?:surface\s+)?streaming\s+(?:is|was|became|remains)\s+(?!not\b)(?:complete[d]?|finished|fully\s+operational|operational|production[- ]ready|working|available)\b/i,
+    /\b(?:live\s+)?(?:generic\s+)?(?:Windows\s+)?(?:surface\s+)?streaming\s+(?:has|had)\s+been\s+(?!not\b)(?:completed|finished|fully\s+operational|operational|made\s+available)\b/i
+  ]) {
+    assert.doesNotMatch(visibleText, overclaimPattern, 'Workspace streaming overclaim must be rejected');
+  }
+}
+
 const approvedPpkVisibleContent = [
   { label: 'physical layout problem', pattern: /physical layout, storage, movement, and training/i },
   { label: 'disconnected records problem', pattern: /disconnected records/i },
@@ -241,24 +267,22 @@ test('Skill Evaluation Lab limits behavioral claims to its preserved experimenta
 
 test('Workspace Environment vNext states its saved checkpoint and unfinished streaming boundary without overstating capability', async () => {
   const workspace = await readFile(new URL('../projects/workspace-environment-vnext/index.html', import.meta.url), 'utf8');
-  const visibleText = ppkVisibleText(workspace);
 
-  for (const claim of [
-    /saved M2A room checkpoint/i,
-    /placeholder application screen/i,
-    /live generic Windows surface streaming was not complete at this checkpoint/i,
-    /World Core owns durable truth/i,
-    /host-controlled authority/i
+  assertWorkspaceClaims(workspace);
+
+  for (const overclaim of [
+    'Windows streaming is complete.',
+    'Fully operational Windows surface streaming.',
+    'Live surface streaming is working.',
+    'Live surface streaming is available.',
+    'Completed live Windows streaming.',
+    'Live generic Windows surface streaming is complete.',
+    'Live Windows surface streaming is operational.',
+    'Production-ready Windows surface streaming.'
   ]) {
-    assert.match(visibleText, claim);
+    assert.throws(
+      () => assertWorkspaceClaims(workspace.replace('</main>', `<p>${overclaim}</p></main>`)),
+      /streaming overclaim/i
+    );
   }
-
-  assert.match(
-    visibleText,
-    /The large application screen is a placeholder in this saved M2A room checkpoint; live generic Windows surface streaming was not complete at this checkpoint\./
-  );
-  assert.doesNotMatch(
-    visibleText,
-    /\b(?:completed?|finished|production-ready|working)\s+(?:live\s+)?(?:generic\s+)?Windows(?:\s+surface)?\s+streaming\b/i
-  );
 });
