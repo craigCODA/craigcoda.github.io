@@ -29,3 +29,14 @@ test('deployment registry includes GitHub Pages protection entries', () => {
 test('legacy top-level pythos directory is absent', async () => {
   await assert.rejects(access(new URL('../pythos/', import.meta.url)));
 });
+
+test('every registered route resolves to a static index document', async () => {
+  await Promise.all(SITE_ROUTES.map((route) => {
+    const relativePath = route === '/' ? '../index.html' : `..${route}index.html`;
+    return access(new URL(relativePath, import.meta.url));
+  }));
+});
+
+test('the static 404 document exists', async () => {
+  await access(new URL('../404.html', import.meta.url));
+});
