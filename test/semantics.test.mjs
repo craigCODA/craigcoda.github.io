@@ -14,6 +14,8 @@ const warehouseCssUrl = new URL('../assets/css/projects/warehouse.css', import.m
 const skillLabCssUrl = new URL('../assets/css/projects/skill-lab.css', import.meta.url);
 const skillLabUrl = new URL('../projects/skill-evaluation-lab/index.html', import.meta.url);
 const builtSkillLabUrl = new URL('../dist/projects/skill-evaluation-lab/index.html', import.meta.url);
+const workspaceCssUrl = new URL('../assets/css/projects/workspace.css', import.meta.url);
+const workspaceUrl = new URL('../projects/workspace-environment-vnext/index.html', import.meta.url);
 const sharedCaseStudyHeadings = [
   'Problem',
   'What I built',
@@ -932,6 +934,45 @@ test('Skill Evaluation Lab authored and built routes preserve ordered evidence-r
   assert.match(skillLabCss, /counter-reset:\s*evidence-step/i);
   assert.match(skillLabCss, /\.skill-evidence-chain li::before[\s\S]*?content:\s*counter\(evidence-step/i);
   assert.doesNotMatch(skillLabCss, /(?:chart|dashboard|box-shadow|border-radius|gradient)/i);
+});
+
+test('Workspace Environment vNext keeps one provenance-traced room plane and a responsive authority composition', async () => {
+  const [workspace, workspaceCss, provenance] = await Promise.all([
+    readFile(workspaceUrl, 'utf8'),
+    readFile(workspaceCssUrl, 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse)
+  ]);
+  const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const headings = [...workspace.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+
+  assert.deepEqual(headings, sharedCaseStudyHeadings);
+  assert.match(workspace, /<link rel=["']stylesheet["'] href=["']\/assets\/css\/projects\/workspace\.css["']>/i);
+  assertLink(workspace, 'Source repository', 'https://github.com/craigCODA/workspace-environment-vnext', { safeExternal: true });
+  assert.equal(linksByLabel(workspace, 'Live demo').length, 0, 'Workspace must not invent a live demo');
+
+  const images = openingTags(workspace, 'img');
+  assert.equal(images.length, 1, 'Workspace must use only the saved room checkpoint visual');
+  assert.equal(
+    assertEvidenceImage(images[0].attributes, registeredEvidence),
+    'assets/evidence/optimized/workspace/workspace_m2a_room_checkpoint'
+  );
+  const workspacePictures = pictures(workspace);
+  assert.equal(workspacePictures.length, 1, 'Workspace must use one responsive room checkpoint picture');
+  const pictureEvidence = assertResponsivePictureEvidence(workspacePictures[0], registeredEvidence);
+  assert.equal(pictureEvidence.stem, 'assets/evidence/optimized/workspace/workspace_m2a_room_checkpoint');
+  await assertResponsiveCandidateFiles(pictureEvidence.candidates);
+
+  const rules = parseCssRules(workspaceCss);
+  const desktopRules = rules.filter((rule) => rule.atRules.length === 0);
+  const narrowRules = rules.filter(isRequiredNarrowMediaRule);
+  assert.match(effectiveExactDeclarations(desktopRules, '.workspace-evidence-layout').get('grid-template-columns') ?? '', /minmax\(/);
+  assert.equal(effectiveExactDeclarations(narrowRules, '.workspace-evidence-layout').get('grid-template-columns'), '1fr');
+  assert.match(effectiveExactDeclarations(desktopRules, '.workspace-authority-column').get('margin-top') ?? '', /clamp\(/);
+  assert.equal(effectiveExactDeclarations(narrowRules, '.workspace-authority-column').get('margin-top'), '0');
+  assert.equal(effectiveExactDeclarations(desktopRules, '.workspace-room-plane img').get('height'), 'auto');
+  assert.doesNotMatch(workspaceCss, /(?:box-shadow|border-radius|gradient|animation|backdrop-filter)/i);
+  assert.doesNotMatch(workspace, /<script\b/i);
 });
 
 test('every selected work evidence image resolves to provenance with its registered intrinsic contract', async () => {

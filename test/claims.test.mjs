@@ -238,3 +238,27 @@ test('Skill Evaluation Lab limits behavioral claims to its preserved experimenta
   assert.match(visibleText, /not promoted as general improvements/i);
   assert.doesNotMatch(visibleText, /candidates? (?:is|are|show|represent) (?:a )?general improvement/i);
 });
+
+test('Workspace Environment vNext states its saved checkpoint and unfinished streaming boundary without overstating capability', async () => {
+  const workspace = await readFile(new URL('../projects/workspace-environment-vnext/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(workspace);
+
+  for (const claim of [
+    /saved M2A room checkpoint/i,
+    /placeholder application screen/i,
+    /live generic Windows surface streaming was not complete at this checkpoint/i,
+    /World Core owns durable truth/i,
+    /host-controlled authority/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+
+  assert.match(
+    visibleText,
+    /The large application screen is a placeholder in this saved M2A room checkpoint; live generic Windows surface streaming was not complete at this checkpoint\./
+  );
+  assert.doesNotMatch(
+    visibleText,
+    /\b(?:completed?|finished|production-ready|working)\s+(?:live\s+)?(?:generic\s+)?Windows(?:\s+surface)?\s+streaming\b/i
+  );
+});
