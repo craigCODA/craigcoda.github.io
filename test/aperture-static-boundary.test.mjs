@@ -338,7 +338,7 @@ test('Task 5 static-boundary contracts reject targeted mutations', async () => {
     [badControl, /interactive controls/],
     [badCarouselRole, /carousel roles/],
     [badPageScript, /page scripts/],
-    ...['setTimeout', 'IntersectionObserver', 'autoplay', 'loop'].map((api) => [html.replace('<body>', `<body data-task-5-probe="${api}">`), /runtime timeline APIs/])
+    ...['setTimeout', 'setInterval', 'requestAnimationFrame', 'IntersectionObserver', 'matchMedia', 'autoplay', 'loop'].map((api) => [html.replace('<body>', `<body data-task-5-probe="${api}">`), /runtime timeline APIs/])
   ];
   const motionMutations = [
     [`${homeCss}\n.page-shell .aperture-frame { -webkit-transition: none; }`, /-webkit-transition/],
