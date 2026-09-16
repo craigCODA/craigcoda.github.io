@@ -29,7 +29,7 @@ test('audit rejects confidential HTML and raw text exports', async (context) => 
   const home = path.join(root, 'index.html'); await writeFile(home, (await readFile(home, 'utf8')).replace(disclosure, '')); const exportPath = path.join(root, 'assets', 'warehouse-export.csv'); await writeFile(exportPath, 'operator,material\nAlice,12345\n'); await assert.rejects(auditPublicOutput(root), /assets\/warehouse-export\.csv: public file type is not allowlisted/);
 });
 test('audit rejects extra route documents and directory references', async (context) => {
-  const root = await fixture(context); const secretRoute = path.join(root, 'projects', 'secret'); await mkdir(secretRoute); await writeFile(path.join(secretRoute, 'index.html'), '<!doctype html><title>Private</title>'); await assert.rejects(auditPublicOutput(root), /projects\/secret\/index\.html: unregistered built route/);
+  const root = await fixture(context); const secretRoute = path.join(root, 'projects', 'secret'); await mkdir(secretRoute); await writeFile(path.join(secretRoute, 'index.html'), '<!doctype html><title>Private</title>'); await assert.rejects(auditPublicOutput(root), /projects\/secret: unregistered built route directory/);
   await rm(secretRoute, { recursive: true }); await appendHome(root, '<a href="/projects/">Directory</a>'); await assert.rejects(auditPublicOutput(root), /href does not resolve: \/projects\//);
   const home = path.join(root, 'index.html'); await writeFile(home, (await readFile(home, 'utf8')).replace('href="/projects/"', 'href="/projects"')); await assert.rejects(auditPublicOutput(root), /href targets a directory: \/projects/);
 });
