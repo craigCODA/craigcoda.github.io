@@ -39,11 +39,11 @@ async function assertEscape(context, linkType) {
 }
 
 test('POSIX preview rejects a directory-symlink escape', async (context) => {
-  if (process.platform === 'win32') context.skip('POSIX symlink test skipped on Windows; Windows junction test provides local containment evidence');
+  if (process.platform === 'win32') return context.skip('POSIX symlink test skipped on Windows; Windows junction test provides local containment evidence');
   await assertEscape(context, 'dir');
 });
 
 test('Windows preview rejects a junction/reparse escape', async (context) => {
-  if (process.platform !== 'win32') context.skip('Windows junction test skipped on POSIX');
+  if (process.platform !== 'win32') return context.skip('Windows junction test skipped on POSIX');
   await assertEscape(context, 'junction');
 });
