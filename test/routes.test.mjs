@@ -30,6 +30,12 @@ test('legacy top-level pythos directory is absent', async () => {
   await assert.rejects(access(new URL('../pythos/', import.meta.url)));
 });
 
+test('PythOS portfolio route points outward to the independently deployed documentation', async () => {
+  const pythos = await readFile(new URL('../projects/pythos/index.html', import.meta.url), 'utf8');
+
+  assert.match(pythos, /href=["']https:\/\/craigcoda\.github\.io\/pythos\/["']/i);
+});
+
 test('every registered route resolves to a static index document', async () => {
   await Promise.all(SITE_ROUTES.map((route) => {
     const relativePath = route === '/' ? '../index.html' : `..${route}index.html`;

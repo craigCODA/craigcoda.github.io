@@ -17,6 +17,8 @@ const builtSkillLabUrl = new URL('../dist/projects/skill-evaluation-lab/index.ht
 const workspaceCssUrl = new URL('../assets/css/projects/workspace.css', import.meta.url);
 const workspaceUrl = new URL('../projects/workspace-environment-vnext/index.html', import.meta.url);
 const builtWorkspaceUrl = new URL('../dist/projects/workspace-environment-vnext/index.html', import.meta.url);
+const pythosCssUrl = new URL('../assets/css/projects/pythos.css', import.meta.url);
+const pythosUrl = new URL('../projects/pythos/index.html', import.meta.url);
 const mandatoryWorkspaceBoundary = 'The large application screen is a placeholder in this saved M2A room checkpoint; live generic Windows surface streaming was not complete at this checkpoint.';
 const sharedCaseStudyHeadings = [
   'Problem',
@@ -407,6 +409,35 @@ function assertWorkspaceDocumentContract(markup, provenance) {
 function assertWorkspaceVisualBoundary(css) {
   assert.doesNotMatch(css, /(?:box-shadow|border-radius|gradient|animation|backdrop-filter)/i);
   assert.doesNotMatch(css, /(?:background-image\s*:|url\s*\()/i, 'Workspace CSS must not inject an alternate visual asset');
+}
+
+function assertPythosDocumentContract(markup, provenance) {
+  const headings = [...markup.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  const visible = visibleText(markup);
+  const expectedStems = [
+    'assets/evidence/optimized/pythos/pythos_physical_evidence_terminal',
+    'assets/evidence/optimized/pythos/pythos-architecture-evidence-boundary',
+    'assets/evidence/optimized/pythos/pythos_public_evidence_map',
+    'assets/evidence/optimized/pythos/pythos_claim_boundary'
+  ];
+
+  assert.deepEqual(headings, sharedCaseStudyHeadings);
+  assert.match(markup, /<link rel=["']stylesheet["'] href=["']\/assets\/css\/projects\/pythos\.css["']>/i);
+  assertLink(markup, 'Source repository', 'https://github.com/craigCODA/pythos', { safeExternal: true });
+  assertLink(markup, 'Independent PythOS documentation', 'https://craigcoda.github.io/pythos/', { safeExternal: true });
+  assertLink(markup, 'Milestone release: Physical Persistent Object Storage', 'https://github.com/craigCODA/pythos/releases/tag/milestone-1-physical-storage', { safeExternal: true });
+  assert.match(visible, /Governing architecture/i);
+  assert.match(visible, /Verified implementation/i);
+  assert.match(visible, /Physical evidence/i);
+  assert.match(visible, /Current boundary \/ unfinished work/i);
+
+  const pythosPictures = pictures(markup);
+  assert.equal(pythosPictures.length, 4, 'PythOS must use the four registered evidence assets');
+  const stems = pythosPictures.map((picture) => assertResponsivePictureEvidence(picture, provenance).stem).sort();
+  assert.deepEqual(stems, expectedStems.slice().sort());
+
+  return pythosPictures.flatMap((picture) => assertResponsivePictureEvidence(picture, provenance).candidates);
 }
 
 function projectModifierTokens(attributes) {
@@ -1032,6 +1063,21 @@ test('Workspace Environment vNext authored and built routes keep their complete 
     assert.throws(() => assertWorkspaceVisualBoundary(cssMutation), /alternate visual/i);
   }
   assert.doesNotMatch(workspace, /<script\b/i);
+});
+
+test('PythOS preserves its registered evidence, external documentation boundary, and light-document treatment', async () => {
+  const [pythos, pythosCss, provenance] = await Promise.all([
+    readFile(pythosUrl, 'utf8'),
+    readFile(pythosCssUrl, 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse)
+  ]);
+  const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const candidates = assertPythosDocumentContract(pythos, registeredEvidence);
+
+  await assertResponsiveCandidateFiles(candidates);
+  assert.match(pythosCss, /\.pythos-terminal-band\s*\{[\s\S]*?background:\s*var\(--charcoal\)/i);
+  assert.match(pythosCss, /\.pythos-document-pair\s*\{[\s\S]*?grid-template-columns/i);
+  assert.doesNotMatch(pythosCss, /(?:box-shadow|border-radius|gradient)/i);
 });
 
 test('every selected work evidence image resolves to provenance with its registered intrinsic contract', async () => {

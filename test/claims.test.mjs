@@ -240,6 +240,21 @@ test('selected PythOS evidence band carries its target-specific metrics', async 
   assert.match(pythosBand, /target-specific physical evidence/i);
 });
 
+test('PythOS case study separates its documented physical result from universal hardware claims', async () => {
+  const pythos = await readFile(new URL('../projects/pythos/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(pythos);
+
+  for (const claim of [
+    /313 verification markers/i,
+    /zero drops/i,
+    /CRC 176F4C6E/i,
+    /target-specific physical evidence/i,
+    /not a claim of universal hardware support/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+});
+
 test('Skill Evaluation Lab limits behavioral claims to its preserved experimental evidence', async () => {
   const skillLab = await readFile(new URL('../projects/skill-evaluation-lab/index.html', import.meta.url), 'utf8');
   const visibleText = ppkVisibleText(skillLab);

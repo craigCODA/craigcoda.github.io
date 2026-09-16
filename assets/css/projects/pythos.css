@@ -1,0 +1,141 @@
+.pythos-page {
+  padding-bottom: clamp(5rem, 12vw, 10rem);
+}
+
+.pythos-problem,
+.pythos-technologies {
+  margin-left: auto;
+  width: min(100%, 72rem);
+}
+
+.pythos-built,
+.pythos-links {
+  border-top: 1px solid var(--line);
+  padding-top: clamp(2rem, 5vw, 5rem);
+}
+
+.pythos-architecture {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.56fr) minmax(24rem, 1.44fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: start;
+}
+
+.pythos-architecture h2,
+.pythos-terminal-band h2,
+.pythos-documents h2 {
+  margin-bottom: 0;
+}
+
+.pythos-architecture h3,
+.pythos-terminal-copy h3 {
+  margin: 2rem 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 2vw, 1.9rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.pythos-architecture h3 + p,
+.pythos-terminal-copy h3 + p {
+  margin-top: 0;
+}
+
+.pythos-architecture-figure {
+  border-top: 1px solid var(--ink);
+  padding-top: 0.75rem;
+}
+
+.pythos-terminal-band {
+  padding-block: clamp(4rem, 8vw, 8rem);
+  background: var(--charcoal);
+  color: var(--paper-bright);
+}
+
+.pythos-terminal-layout {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.58fr) minmax(24rem, 1.42fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: start;
+}
+
+.pythos-terminal-band h2,
+.pythos-terminal-band h3 {
+  color: var(--paper-bright);
+}
+
+.pythos-terminal-band figcaption {
+  color: color-mix(in srgb, var(--paper-bright) 70%, transparent);
+}
+
+.pythos-terminal-figure {
+  border: 1px solid color-mix(in srgb, var(--paper-bright) 40%, transparent);
+  padding: clamp(0.4rem, 1vw, 0.8rem);
+}
+
+.pythos-terminal-figure img {
+  height: auto;
+}
+
+.pythos-result {
+  padding-bottom: clamp(2rem, 5vw, 5rem);
+  border-bottom: 1px solid var(--ink);
+}
+
+.pythos-result .serif-lede {
+  max-width: 28ch;
+  margin: 0;
+}
+
+.pythos-documents {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.7fr) minmax(20rem, 1.3fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: start;
+}
+
+.pythos-documents > div > p {
+  margin-top: 1.5rem;
+}
+
+.pythos-document-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1rem, 3vw, 2.5rem);
+  align-items: start;
+}
+
+.pythos-document-pair figure + figure {
+  margin-top: clamp(3rem, 10vw, 10rem);
+}
+
+.pythos-boundary .boundary-note {
+  border-left-color: var(--ink);
+}
+
+.pythos-boundary .boundary-note p + p {
+  margin-top: 1rem;
+}
+
+@media (max-width: 54rem) {
+  .pythos-architecture,
+  .pythos-terminal-layout,
+  .pythos-documents {
+    grid-template-columns: 1fr;
+  }
+
+  .pythos-document-pair {
+    max-width: 38rem;
+  }
+}
+
+@media (max-width: 42rem) {
+  .pythos-document-pair {
+    gap: 1rem;
+  }
+
+  .pythos-document-pair figure + figure {
+    margin-top: 3rem;
+  }
+}
