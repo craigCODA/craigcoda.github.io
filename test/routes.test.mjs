@@ -1,8 +1,15 @@
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { DEPLOY_ENTRIES, SITE_ROUTES } from '../scripts/site-files.mjs';
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const execFileAsync = promisify(execFile);
 
 const expectedRoutes = [
   '/',
@@ -40,6 +47,15 @@ test('every registered route resolves to a static index document', async () => {
   await Promise.all(SITE_ROUTES.map((route) => {
     const relativePath = route === '/' ? '../index.html' : `..${route}index.html`;
     return access(new URL(relativePath, import.meta.url));
+  }));
+});
+
+test('every registered route resolves to a built static index document', async () => {
+  await execFileAsync(process.execPath, ['scripts/build.mjs'], { cwd: repositoryRoot });
+
+  await Promise.all(SITE_ROUTES.map((route) => {
+    const relativePath = route === '/' ? 'index.html' : `${route.slice(1)}index.html`;
+    return access(path.join(repositoryRoot, 'dist', relativePath));
   }));
 });
 

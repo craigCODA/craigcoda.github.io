@@ -86,6 +86,11 @@ test('excluded raw warehouse bin map is neither registered nor copied', async ()
   await assert.rejects(access(path.join(evidenceRoot, 'original', excludedSource)));
 });
 
+test('public-output audit accepts the built allowlist and public evidence contracts', async () => {
+  await execFileAsync(process.execPath, ['scripts/build.mjs'], { cwd: repositoryRoot });
+  await execFileAsync(process.execPath, ['scripts/audit-public-output.mjs', 'dist'], { cwd: repositoryRoot });
+});
+
 test('warehouse route consumes only the declared public-safe result visual', async () => {
   const [records, warehouse] = await Promise.all([
     readProvenance(),

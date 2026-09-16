@@ -1,5 +1,5 @@
 import { createReadStream } from 'node:fs';
-import { access } from 'node:fs/promises';
+import { access, stat } from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 
@@ -7,6 +7,7 @@ const [rootArgument = 'dist'] = process.argv.slice(2).filter((argument) => !argu
 const portFlag = process.argv.indexOf('--port');
 const port = Number(portFlag === -1 ? 4173 : process.argv[portFlag + 1]);
 const root = path.resolve(rootArgument);
+if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('port must be an integer from 1 through 65535');
 const mimeTypes = {
   '.avif': 'image/avif', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8',
   '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg', '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -19,15 +20,22 @@ function outputFile(response, file, status = 200) {
 }
 
 http.createServer(async (request, response) => {
-  const pathname = decodeURIComponent(new URL(request.url, `http://${request.headers.host}`).pathname);
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(request.url, `http://${request.headers.host}`).pathname);
+  } catch {
+    response.writeHead(400).end('Bad request');
+    return;
+  }
   const relative = pathname.endsWith('/') ? `${pathname}index.html` : pathname;
   const file = path.resolve(root, `.${relative}`);
-  if (!file.startsWith(`${root}${path.sep}`)) {
+  const withinRoot = path.relative(root, file);
+  if (withinRoot.startsWith('..') || path.isAbsolute(withinRoot)) {
     response.writeHead(403).end('Forbidden');
     return;
   }
   try {
-    await access(file);
+    if (!(await stat(file)).isFile()) throw new Error('not a file');
     outputFile(response, file);
   } catch {
     const fallback = path.join(root, '404.html');
