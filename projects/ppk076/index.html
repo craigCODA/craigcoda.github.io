@@ -1,2 +1,190 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/assets/css/reset.css"><link rel="stylesheet" href="/assets/css/tokens.css"><link rel="stylesheet" href="/assets/css/base.css"><title>PPK076 — Craig Ramos</title></head><body><a class="skip-link" href="#main-content">Skip to content</a><main class="page-shell page-main" id="main-content" tabindex="-1"><p class="eyebrow">Project</p><h1 class="display">PPK076</h1><p><a class="text-link" href="/">Return home</a></p></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PPK076: an offline-capable spatial warehouse simulation for inspecting physical occupancy and operating relationships.">
+  <link rel="stylesheet" href="/assets/css/reset.css">
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/base.css">
+  <link rel="stylesheet" href="/assets/css/project.css">
+  <link rel="stylesheet" href="/assets/css/projects/ppk076.css">
+  <title>PPK076 — Spatial Evidence Case Study — Craig Ramos</title>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <main class="page-main ppk-page" id="main-content" tabindex="-1">
+    <header class="project-header page-shell">
+      <p class="eyebrow">Spatial evidence case study</p>
+      <h1 class="display">PPK076</h1>
+      <p class="serif-lede">A modeled facility makes physical occupancy, movement, and training relationships inspectable in the browser.</p>
+      <p><a class="text-link" href="/">Return home</a></p>
+    </header>
+
+    <figure class="evidence-figure ppk-opening-evidence">
+      <picture>
+        <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1080w.avif 1080w, /assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1759w.avif 1759w" sizes="100vw">
+        <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1080w.webp 1080w, /assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1759w.webp 1759w" sizes="100vw">
+        <img src="/assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1759w.webp" alt="Oblique overview of the modeled production and warehouse facility" width="1759" height="916" decoding="async" loading="eager">
+      </picture>
+      <figcaption>Full-facility oblique: modeled production, storage, and circulation in one spatial view.</figcaption>
+    </figure>
+
+    <section class="project-section page-shell" aria-labelledby="problem-title">
+      <div class="ppk-problem-layout">
+        <div>
+          <h2 id="problem-title">Problem</h2>
+          <p class="serif-lede">Physical layout, storage, movement, and training are difficult to reason about when they appear as disconnected records.</p>
+        </div>
+        <figure class="evidence-figure ppk-walkthrough-evidence">
+          <picture>
+            <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_first_person_forklift-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1080w.avif 1080w, /assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1757w.avif 1757w" sizes="(max-width: 42rem) 100vw, 42vw">
+            <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_first_person_forklift-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1080w.webp 1080w, /assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1757w.webp 1757w" sizes="(max-width: 42rem) 100vw, 42vw">
+            <img src="/assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1757w.webp" alt="First-person view inside the modeled Plant 076 production floor with a forklift, pallet load, safety rails, and equipment" width="1757" height="915" decoding="async" loading="lazy">
+          </picture>
+          <figcaption>Walking and forklift views give spatial context to operational scenarios.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="project-section page-shell ppk-build" aria-labelledby="built-title">
+      <h2 id="built-title">What I built</h2>
+      <p class="serif-lede">An offline-capable browser-based Three.js warehouse simulation with walking and forklift interaction, camera modes, PWA support, a WebXR-compatible browser direction, and Electron packaging.</p>
+      <ul class="fact-list" aria-label="PPK076 capabilities">
+        <li>Modeled facility navigation</li>
+        <li>Walking and forklift interaction</li>
+        <li>Camera modes for inspection and training</li>
+        <li>Browser, PWA, and Electron delivery paths</li>
+      </ul>
+    </section>
+
+    <section class="project-section page-shell" aria-labelledby="architecture-title">
+      <h2 id="architecture-title">Architecture / decisions</h2>
+      <div class="ppk-architecture-layout">
+        <div>
+          <p>Physical regions are modeled as regions with meaning: storage, staging, movement paths, safety boundaries, and operating context.</p>
+          <p>The supported data boundary is deliberate: <strong>manual export</strong> to <strong>local parsing</strong> to visualization. There is <strong>no SAP return path</strong>.</p>
+        </div>
+        <figure class="evidence-figure ppk-geometry-evidence">
+          <picture>
+            <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_geometry_wireframe-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_geometry_wireframe-1000w.avif 1000w, /assets/evidence/optimized/ppk076/ppk076_geometry_wireframe-1600w.avif 1600w" sizes="(max-width: 42rem) 100vw, 46vw">
+            <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_geometry_wireframe-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_geometry_wireframe-1000w.webp 1000w, /assets/evidence/optimized/ppk076/ppk076_geometry_wireframe-1600w.webp 1600w" sizes="(max-width: 42rem) 100vw, 46vw">
+            <img src="/assets/evidence/optimized/ppk076/ppk076_geometry_wireframe-1600w.webp" alt="Wireframe fragment showing physical warehouse geometry translated into a software model" width="1600" height="620" decoding="async" loading="lazy">
+          </picture>
+          <figcaption>Geometry establishes the relationship between the physical facility and its software model.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="project-section page-shell" aria-labelledby="evidence-title">
+      <h2 id="evidence-title">Evidence</h2>
+      <div class="ppk-evidence-grid">
+        <figure class="evidence-figure ppk-topdown-inset">
+          <picture>
+            <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_topdown_facility-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_topdown_facility-1080w.avif 1080w, /assets/evidence/optimized/ppk076/ppk076_topdown_facility-1759w.avif 1759w" sizes="(max-width: 42rem) 100vw, 36vw">
+            <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_topdown_facility-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_topdown_facility-1080w.webp 1080w, /assets/evidence/optimized/ppk076/ppk076_topdown_facility-1759w.webp 1759w" sizes="(max-width: 42rem) 100vw, 36vw">
+            <img src="/assets/evidence/optimized/ppk076/ppk076_topdown_facility-1759w.webp" alt="Top-down view showing relationships among modeled warehouse regions" width="1759" height="844" decoding="async" loading="lazy">
+          </picture>
+          <figcaption>Top-down inset: relationships among modeled regions.</figcaption>
+        </figure>
+        <div class="ppk-evidence-copy">
+          <p>Spatial evidence makes the distinction between structure, occupancy, and operational relationship visible without flattening them into a record list.</p>
+          <p>Matched views show the same camera before and after a supported local import visualization; detail views distinguish rack positions from floor-bin areas and place movement in context.</p>
+        </div>
+      </div>
+
+      <div class="ppk-matched-pair" aria-label="Matched local import visualization comparison">
+        <figure class="evidence-figure">
+          <picture>
+            <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import-1080w.avif 1080w, /assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import-1758w.avif 1758w" sizes="(max-width: 42rem) 100vw, 50vw">
+            <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import-1080w.webp 1080w, /assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import-1758w.webp 1758w" sizes="(max-width: 42rem) 100vw, 50vw">
+            <img src="/assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import-1758w.webp" alt="Matched warehouse camera before local inventory data is visualized, showing the modeled storage structure largely unpopulated" width="1758" height="923" decoding="async" loading="lazy">
+          </picture>
+          <figcaption>Before local import visualization</figcaption>
+        </figure>
+        <figure class="evidence-figure">
+          <picture>
+            <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import-1080w.avif 1080w, /assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import-1759w.avif 1759w" sizes="(max-width: 42rem) 100vw, 50vw">
+            <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import-1080w.webp 1080w, /assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import-1759w.webp 1759w" sizes="(max-width: 42rem) 100vw, 50vw">
+            <img src="/assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import-1759w.webp" alt="Same warehouse camera after supported local inventory data is visualized as pallet loads throughout the modeled facility" width="1759" height="918" decoding="async" loading="lazy">
+          </picture>
+          <figcaption>After supported local import visualization</figcaption>
+        </figure>
+      </div>
+
+      <div class="ppk-operational-pair">
+        <figure class="evidence-figure">
+          <picture>
+            <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_rack_floor_bin_detail-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_rack_floor_bin_detail-1080w.avif 1080w, /assets/evidence/optimized/ppk076/ppk076_rack_floor_bin_detail-1759w.avif 1759w" sizes="(max-width: 42rem) 100vw, 44vw">
+            <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_rack_floor_bin_detail-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_rack_floor_bin_detail-1080w.webp 1080w, /assets/evidence/optimized/ppk076/ppk076_rack_floor_bin_detail-1759w.webp 1759w" sizes="(max-width: 42rem) 100vw, 44vw">
+            <img src="/assets/evidence/optimized/ppk076/ppk076_rack_floor_bin_detail-1759w.webp" alt="Modeled storage detail distinguishing rack positions from floor-bin areas" width="1759" height="917" decoding="async" loading="lazy">
+          </picture>
+          <figcaption>Rack positions and floor-bin areas remain distinct in the model.</figcaption>
+        </figure>
+        <figure class="evidence-figure">
+          <picture>
+            <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_operational_relationship-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_operational_relationship-1080w.avif 1080w, /assets/evidence/optimized/ppk076/ppk076_operational_relationship-1759w.avif 1759w" sizes="(max-width: 42rem) 100vw, 56vw">
+            <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_operational_relationship-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_operational_relationship-1080w.webp 1080w, /assets/evidence/optimized/ppk076/ppk076_operational_relationship-1759w.webp 1759w" sizes="(max-width: 42rem) 100vw, 56vw">
+            <img src="/assets/evidence/optimized/ppk076/ppk076_operational_relationship-1759w.webp" alt="Modeled production staging, forklift, and trainee marker showing an operational relationship in space" width="1759" height="918" decoding="async" loading="lazy">
+          </picture>
+          <figcaption>Staging, forklift, and trainee context are inspected together.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="project-section page-shell" aria-labelledby="result-title">
+      <h2 id="result-title">Result</h2>
+      <p class="serif-lede">The software makes spatial occupancy and operating relationships inspectable. It does not present warehouse-optimization results; that decision-support work is separate.</p>
+    </section>
+
+    <section class="project-section page-shell" aria-labelledby="technologies-title">
+      <h2 id="technologies-title">Technologies</h2>
+      <ul class="fact-list ppk-technologies">
+        <li>Three.js</li>
+        <li>JavaScript</li>
+        <li>CSS</li>
+        <li>PWA and service worker</li>
+        <li>WebXR-capable browser path</li>
+        <li>Electron</li>
+        <li>Node build scripts</li>
+      </ul>
+    </section>
+
+    <section class="project-section ppk-architecture-band" aria-labelledby="boundary-title">
+      <div class="page-shell">
+        <h2 id="boundary-title">Current boundary / unfinished work</h2>
+        <div class="boundary-note">
+          <p>This is a simulation and decision/training aid, not a live bidirectional SAP client. Optional movement capture is not required for the initial site.</p>
+        </div>
+        <div class="ppk-boundary-diagrams">
+          <figure class="evidence-figure">
+            <picture>
+              <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_data_security_boundary-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_data_security_boundary-1000w.avif 1000w, /assets/evidence/optimized/ppk076/ppk076_data_security_boundary-1600w.avif 1600w" sizes="(max-width: 42rem) 100vw, 42vw">
+              <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_data_security_boundary-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_data_security_boundary-1000w.webp 1000w, /assets/evidence/optimized/ppk076/ppk076_data_security_boundary-1600w.webp 1600w" sizes="(max-width: 42rem) 100vw, 42vw">
+              <img src="/assets/evidence/optimized/ppk076/ppk076_data_security_boundary-1600w.webp" alt="Diagram of the manual export and local parsing boundary with no return path into SAP" width="1600" height="900" decoding="async" loading="lazy">
+            </picture>
+            <figcaption>Supported data boundary.</figcaption>
+          </figure>
+          <figure class="evidence-figure">
+            <picture>
+              <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_multisite_build_method-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_multisite_build_method-1000w.avif 1000w, /assets/evidence/optimized/ppk076/ppk076_multisite_build_method-1600w.avif 1600w" sizes="(max-width: 42rem) 100vw, 42vw">
+              <source type="image/webp" srcset="/assets/evidence/optimized/ppk076/ppk076_multisite_build_method-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_multisite_build_method-1000w.webp 1000w, /assets/evidence/optimized/ppk076/ppk076_multisite_build_method-1600w.webp 1600w" sizes="(max-width: 42rem) 100vw, 42vw">
+              <img src="/assets/evidence/optimized/ppk076/ppk076_multisite_build_method-1600w.webp" alt="Diagram summarizing the method used to build reusable modeled facility structure" width="1600" height="900" decoding="async" loading="lazy">
+            </picture>
+            <figcaption>Reusable facility-build method.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="project-section page-shell" aria-labelledby="links-title">
+      <h2 id="links-title">Source / demo / verification</h2>
+      <p>The repository and live demo are the current public verification surfaces for this simulation.</p>
+      <ul class="project-links">
+        <li><a class="text-link" href="https://github.com/craigCODA/ppk076" target="_blank" rel="noopener noreferrer">Source repository</a></li>
+        <li><a class="text-link" href="https://craigcoda.github.io/ppk076/" target="_blank" rel="noopener noreferrer">Live demo</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { DEPLOY_ENTRIES, SITE_ROUTES } from '../scripts/site-files.mjs';
@@ -39,4 +39,22 @@ test('every registered route resolves to a static index document', async () => {
 
 test('the static 404 document exists', async () => {
   await access(new URL('../404.html', import.meta.url));
+});
+
+test('PPK076 route provides one main landmark and the shared case-study sequence', async () => {
+  const ppk = await readFile(new URL('../projects/ppk076/index.html', import.meta.url), 'utf8');
+  const headings = [...ppk.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+
+  assert.equal((ppk.match(/<main\b/gi) ?? []).length, 1);
+  assert.deepEqual(headings, [
+    'Problem',
+    'What I built',
+    'Architecture / decisions',
+    'Evidence',
+    'Result',
+    'Technologies',
+    'Current boundary / unfinished work',
+    'Source / demo / verification'
+  ]);
 });

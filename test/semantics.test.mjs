@@ -7,6 +7,7 @@ const baseCssUrl = new URL('../assets/css/base.css', import.meta.url);
 const tokensCssUrl = new URL('../assets/css/tokens.css', import.meta.url);
 const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
 const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
+const ppkUrl = new URL('../projects/ppk076/index.html', import.meta.url);
 const expectedWorkModifiers = [
   'work-piece--ppk',
   'work-piece--warehouse',
@@ -203,6 +204,21 @@ function assertEvidenceImage(attrs, provenance) {
   assert.equal(evidence.widths.includes(fallback.width), true, `${fallback.src} must use a declared responsive width`);
   assert.equal(attrs.get('decoding'), 'async', `${fallback.src} must decode asynchronously`);
   assert.equal(attrs.get('loading'), 'lazy', `${fallback.src} is below the opening and aperture, so it must lazy-load`);
+
+  return fallback.stem;
+}
+
+function assertPpkEvidenceImage(attrs, provenance, { opening = false } = {}) {
+  const fallback = responsiveFallback(attrs);
+  const evidence = provenance.get(fallback.stem);
+
+  assert.ok(evidence, `${fallback.stem} must be registered PPK evidence`);
+  assert.equal(attrs.get('alt'), evidence.alt, `${fallback.src} must use the registered alt text`);
+  assert.equal(attrs.get('width'), String(evidence.sourceWidth), `${fallback.src} must declare its source width`);
+  assert.equal(attrs.get('height'), String(evidence.sourceHeight), `${fallback.src} must declare its source height`);
+  assert.equal(evidence.widths.includes(fallback.width), true, `${fallback.src} must use a declared responsive width`);
+  assert.equal(attrs.get('decoding'), 'async', `${fallback.src} must decode asynchronously`);
+  assert.equal(attrs.get('loading'), opening ? 'eager' : 'lazy', `${fallback.src} must use the correct evidence loading priority`);
 
   return fallback.stem;
 }
@@ -475,6 +491,29 @@ test('every current text-link document loads its shared styles and marks its ret
     assert.equal(returnControls.length, 1);
     assert.equal(attributeTokens(returnControls[0].attributes, 'class').has('text-link'), true);
   }));
+});
+
+test('PPK076 renders its ten registered PPK evidence records with their public metadata and confirmed links', async () => {
+  const [ppk, provenance] = await Promise.all([
+    readFile(ppkUrl, 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse)
+  ]);
+  const registeredPpkEvidence = new Map(provenance
+    .filter((entry) => entry.project === 'ppk076')
+    .map((entry) => [entry.outputStem, entry]));
+  const images = openingTags(ppk, 'img');
+
+  assert.equal(images.length, 10);
+  assert.deepEqual(
+    images.map(({ attributes }, index) => assertPpkEvidenceImage(attributes, registeredPpkEvidence, { opening: index === 0 })).sort(),
+    [...registeredPpkEvidence.keys()].sort()
+  );
+  assert.equal(
+    assertPpkEvidenceImage(images[0].attributes, registeredPpkEvidence, { opening: true }),
+    'assets/evidence/optimized/ppk076/ppk076_full_facility_oblique'
+  );
+  assert.match(ppk, /href=["']https:\/\/github\.com\/craigCODA\/ppk076["']/i);
+  assert.match(ppk, /href=["']https:\/\/craigcoda\.github\.io\/ppk076\/["']/i);
 });
 
 test('narrow-screen styles give every current link control a 44-pixel touch target', async () => {

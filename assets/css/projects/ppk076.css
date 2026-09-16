@@ -1,0 +1,132 @@
+.ppk-page {
+  padding-bottom: clamp(5rem, 12vw, 10rem);
+}
+
+.ppk-opening-evidence {
+  width: 100%;
+  background: var(--charcoal);
+  color: var(--paper-bright);
+}
+
+.ppk-opening-evidence img {
+  max-height: min(72vh, 58rem);
+  object-fit: cover;
+}
+
+.ppk-opening-evidence figcaption {
+  width: min(100% - (var(--gutter) * 2), var(--page-max));
+  margin: 0 auto;
+  padding-block: 0.75rem 1rem;
+  color: inherit;
+}
+
+.ppk-problem-layout,
+.ppk-architecture-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(18rem, 1.1fr);
+  gap: clamp(2rem, 7vw, 8rem);
+  align-items: start;
+}
+
+.ppk-walkthrough-evidence {
+  margin-top: clamp(2rem, 6vw, 7rem);
+}
+
+.ppk-build {
+  margin-left: auto;
+  width: min(100%, 76rem);
+}
+
+.ppk-geometry-evidence {
+  margin-top: 1rem;
+}
+
+.ppk-evidence-grid {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.72fr) minmax(18rem, 1.28fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: center;
+}
+
+.ppk-topdown-inset {
+  border: 1px solid var(--line);
+  padding: 0.75rem;
+}
+
+.ppk-evidence-copy p + p {
+  margin-top: 1.25rem;
+}
+
+.ppk-matched-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin-top: clamp(2.5rem, 6vw, 6rem);
+  background: var(--line);
+}
+
+.ppk-matched-pair .evidence-figure {
+  background: var(--paper);
+  padding-bottom: 1rem;
+}
+
+.ppk-matched-pair figcaption,
+.ppk-operational-pair figcaption {
+  padding-inline: 1rem;
+}
+
+.ppk-operational-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  margin-top: clamp(2.5rem, 6vw, 6rem);
+}
+
+.ppk-technologies {
+  max-width: 52rem;
+}
+
+.ppk-architecture-band {
+  margin-block-end: 0;
+  padding-block: clamp(4rem, 8vw, 8rem);
+  background: var(--charcoal);
+  color: var(--paper-bright);
+}
+
+.ppk-architecture-band .boundary-note {
+  margin-bottom: 2rem;
+}
+
+.ppk-boundary-diagrams {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.5rem, 4vw, 4rem);
+}
+
+.ppk-architecture-band figcaption {
+  color: var(--paper);
+}
+
+@media (max-width: 42rem) {
+  .ppk-opening-evidence img {
+    min-height: 17rem;
+  }
+
+  .ppk-problem-layout,
+  .ppk-architecture-layout,
+  .ppk-evidence-grid,
+  .ppk-matched-pair,
+  .ppk-operational-pair,
+  .ppk-boundary-diagrams {
+    grid-template-columns: 1fr;
+  }
+
+  .ppk-walkthrough-evidence,
+  .ppk-geometry-evidence {
+    margin-top: 0.5rem;
+  }
+
+  .ppk-topdown-inset {
+    max-width: none;
+  }
+}

@@ -12,6 +12,18 @@ const publicDocuments = [
   '../projects/pythos/index.html'
 ];
 
+test('PPK076 describes the supported local boundary without exposing inventory records or warehouse-optimization results', async () => {
+  const ppk = await readFile(new URL('../projects/ppk076/index.html', import.meta.url), 'utf8');
+
+  assert.match(ppk, /manual export/i);
+  assert.match(ppk, /local parsing/i);
+  assert.match(ppk, /no SAP return path/i);
+  assert.doesNotMatch(ppk, /176 pallet positions recovered/i);
+  assert.doesNotMatch(ppk, /22 storage bins freed/i);
+  assert.doesNotMatch(ppk, /<table\b/i);
+  assert.doesNotMatch(ppk, /(?:material number|storage bin|inventory record)\s*[:|]/i);
+});
+
 test('homepage publishes only the approved evidence-led claims', async () => {
   const home = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const publicHtml = await Promise.all(publicDocuments.map((document) => readFile(new URL(document, import.meta.url), 'utf8')));
