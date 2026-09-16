@@ -91,6 +91,9 @@ function attributeValues(markup, attribute) {
   const expression = new RegExp(`\\b${attribute}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'gi');
   return [...markup.matchAll(expression)].map((match) => match[1] ?? match[2] ?? match[3]);
 }
+function anchorHref(tag) {
+  return /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(tag)?.slice(1).find((value) => value !== undefined);
+}
 
 function assertImageProvenance(relativePath, source, provenanceStems) {
   const local = localReference(source);
@@ -131,7 +134,7 @@ async function auditHtml(root, file, relativePath, markup, provenanceStems) {
   for (const [plannedFile, links] of expectedExternalAnchors) {
     if (relativePath !== plannedFile) continue;
     const actual = new Set(Array.from(markup.matchAll(/<a\b[^>]*>/gi))
-      .map((match) => attributeValues(match[0], 'href')[0])
+      .map((match) => anchorHref(match[0]))
       .filter((href) => /^(?:https?:|mailto:)/i.test(href ?? ''))
       .map((href) => new URL(href).href));
     const expected = new Set(links.map((href) => new URL(href).href));
@@ -197,7 +200,7 @@ export async function auditPublicOutput(outputRoot) {
       if (extension === '.css') await auditCss(root, absolutePath, relativePath, content, provenanceStems);
       if (extension === '.js' || extension === '.mjs') await auditJavaScript(root, absolutePath, content);
     }
-    if (!PUBLIC_FILE_EXTENSIONS.has(extension)) fail(relativePath, 'public file type is not allowlisted');
+    if (relativePath !== '.nojekyll' && !PUBLIC_FILE_EXTENSIONS.has(extension)) fail(relativePath, 'public file type is not allowlisted');
   }
   for (const { relativePath } of files) {
     if (IMAGE_EXTENSIONS.has(path.extname(relativePath).toLowerCase()) && !provenancePaths.has(relativePath)) {
@@ -206,6 +209,9 @@ export async function auditPublicOutput(outputRoot) {
   }
 
   const expectedRouteDocuments = new Set(SITE_ROUTES.map((route) => route === '/' ? 'index.html' : `${route.slice(1)}index.html`));
+  for (const entry of await readdir(path.join(root, 'projects'), { withFileTypes: true })) {
+    if (entry.isDirectory() && !expectedRouteDocuments.has(`projects/${entry.name}/index.html`)) fail(`projects/${entry.name}`, 'unregistered built route directory');
+  }
   const builtRouteDocuments = files.filter(({ relativePath }) => path.extname(relativePath) === '.html' && relativePath !== '404.html')
     .map(({ relativePath }) => relativePath);
   for (const relativePath of builtRouteDocuments) if (!expectedRouteDocuments.has(relativePath)) fail(relativePath, 'unregistered built route');
