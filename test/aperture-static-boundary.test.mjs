@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const indexUrl = new URL('../index.html', import.meta.url);
 const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
+const apertureCssUrl = new URL('../assets/css/aperture.css', import.meta.url);
 const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
 const expectedCopy = [
   ['I MODEL PHYSICAL SYSTEMS.', 'Physical operations, modeled in software.'],
@@ -228,16 +229,18 @@ function prohibitedApertureMotionProperties(homeCss) {
     .flatMap((rule) => rule.declarations.filter((property) => /^(?:-(?:webkit|moz|ms|o)-)?(?:transition|animation)$|^(?:opacity|transform)$/.test(property)));
 }
 
-function assertStaticBoundary(markup, aperture, homeCss) {
-  assert.equal(/<(?:a|button|form|input|select|textarea)\b/i.test(aperture), false, 'Task 5 aperture must not include interactive controls');
-  assert.equal(/\brole\s*=\s*["'](?:carousel|tab|tablist|tabpanel|listbox|option)["']/i.test(aperture), false, 'Task 5 aperture must not include carousel roles');
-  assert.equal(/\baria-(?:roledescription|controls|selected)\s*=/i.test(aperture), false, 'Task 5 aperture must not include carousel ARIA patterns');
-  assert.equal(/<script\b/i.test(markup), false, 'Task 5 static boundary prohibits page scripts');
-  assert.equal(/assets\/js\/(?:aperture(?:-controller)?\.js)/i.test(markup), false, 'Task 5 static boundary prohibits runtime controller files');
-  assert.equal(/\b(?:setTimeout|setInterval|requestAnimationFrame|IntersectionObserver|matchMedia|autoplay|loop)\b/i.test(markup), false, 'Task 5 static boundary prohibits runtime timeline APIs');
+function assertRuntimeBoundary(markup, aperture, homeCss, apertureCss) {
+  assert.equal(/<(?:a|button|form|input|select|textarea)\b/i.test(aperture), false, 'aperture must not include interactive controls');
+  assert.equal(/\brole\s*=\s*["'](?:carousel|tab|tablist|tabpanel|listbox|option)["']/i.test(aperture), false, 'aperture must not include carousel roles');
+  assert.equal(/\baria-(?:roledescription|controls|selected)\s*=/i.test(aperture), false, 'aperture must not include carousel ARIA patterns');
+  assert.match(markup, /<link\b[^>]*href=["']\/assets\/css\/aperture\.css["']/i, 'homepage must load the aperture presentation');
+  assert.match(markup, /<script\b[^>]*type=["']module["'][^>]*src=["']\/assets\/js\/aperture\.js["'][^>]*><\/script>/i, 'homepage may load only the aperture DOM adapter');
+  assert.equal((markup.match(/<script\b/gi) ?? []).length, 1, 'homepage must keep the runtime boundary to one external module');
+  assert.equal(/\b(?:autoplay|loop)\b/i.test(aperture), false, 'aperture must never opt into looping media');
 
   const motionProperties = prohibitedApertureMotionProperties(homeCss);
-  assert.deepEqual(motionProperties, [], `Task 5 aperture selectors must not add motion or opacity-hidden sequencing: ${motionProperties.join(', ')}`);
+  assert.deepEqual(motionProperties, [], `home layout styles must not own aperture motion: ${motionProperties.join(', ')}`);
+  assert.match(apertureCss, /\[data-aperture-frame\]/, 'aperture presentation must stay in its focused stylesheet');
 }
 
 function projectArticle(markup, modifier) {
@@ -276,10 +279,11 @@ function reorderFirstApertureImageAttributes(markup) {
   return markup.replace(firstImage.tag, reordered);
 }
 
-test('Task 5 static aperture has exact copy, registered responsive evidence, and scoped disclosures', async () => {
-  const [html, homeCss, provenanceEntries] = await Promise.all([
+test('aperture preserves its authored content, evidence, and narrowed runtime boundary', async () => {
+  const [html, homeCss, apertureCss, provenanceEntries] = await Promise.all([
     readFile(indexUrl, 'utf8'),
     readFile(homeCssUrl, 'utf8'),
+    readFile(apertureCssUrl, 'utf8'),
     readFile(provenanceUrl, 'utf8').then(JSON.parse)
   ]);
   const provenance = new Map(provenanceEntries.map((entry) => [entry.outputStem, entry]));
@@ -289,18 +293,17 @@ test('Task 5 static aperture has exact copy, registered responsive evidence, and
   assertExactVisibleCopy(stateFrames);
   assertExactTranscript(body);
   const candidates = assertResponsiveEvidenceShape(body, provenance);
-  assertStaticBoundary(html, aperture, homeCss);
+  assertRuntimeBoundary(html, aperture, homeCss, apertureCss);
   assertScopedDisclosures(html, stateFrames);
   await assertEvidenceFiles(candidates);
-  await Promise.all(['../assets/js/aperture-controller.js', '../assets/js/aperture.js'].map(async (relativePath) => {
-    await assert.rejects(access(new URL(relativePath, import.meta.url)), /ENOENT/, 'Task 5 must not introduce runtime controller files');
-  }));
+  await Promise.all(['../assets/js/aperture-controller.js', '../assets/js/aperture.js'].map((relativePath) => access(new URL(relativePath, import.meta.url))));
 });
 
-test('Task 5 static-boundary contracts reject targeted mutations', async () => {
-  const [html, homeCss, provenanceEntries] = await Promise.all([
+test('aperture content and runtime-boundary contracts reject targeted mutations', async () => {
+  const [html, homeCss, apertureCss, provenanceEntries] = await Promise.all([
     readFile(indexUrl, 'utf8'),
     readFile(homeCssUrl, 'utf8'),
+    readFile(apertureCssUrl, 'utf8'),
     readFile(provenanceUrl, 'utf8').then(JSON.parse)
   ]);
   const provenance = new Map(provenanceEntries.map((entry) => [entry.outputStem, entry]));
@@ -337,8 +340,9 @@ test('Task 5 static-boundary contracts reject targeted mutations', async () => {
   const runtimeMutations = [
     [badControl, /interactive controls/],
     [badCarouselRole, /carousel roles/],
-    [badPageScript, /page scripts/],
-    ...['setTimeout', 'setInterval', 'requestAnimationFrame', 'IntersectionObserver', 'matchMedia', 'autoplay', 'loop'].map((api) => [html.replace('<body>', `<body data-task-5-probe="${api}">`), /runtime timeline APIs/])
+    [badPageScript, /one external module/],
+    [html.replace('/assets/js/aperture.js', '/assets/js/other.js'), /aperture DOM adapter/],
+    ...['autoplay', 'loop'].map((api) => [html.replace('<figure', `<figure data-task-6-probe="${api}"`), /looping media/])
   ];
   const motionMutations = [
     [`${homeCss}\n.page-shell .aperture-frame { -webkit-transition: none; }`, /-webkit-transition/],
@@ -351,8 +355,8 @@ test('Task 5 static-boundary contracts reject targeted mutations', async () => {
   assert.throws(() => assertExactVisibleCopy(frames(extraVisibleCopy).stateFrames), /visible copy must be exact and ordered/);
   assert.throws(() => assertExactTranscript(frames(changedTranscript).body), /transcript must preserve every state in exact order/);
   for (const [markup, expectedError] of shapeMutations) assert.throws(() => assertResponsiveEvidenceShape(frames(markup).body, provenance), expectedError);
-  for (const [markup, expectedError] of runtimeMutations) assert.throws(() => assertStaticBoundary(markup, apertureFigure(markup).aperture, homeCss), expectedError);
-  for (const [css, expectedError] of motionMutations) assert.throws(() => assertStaticBoundary(html, apertureFigure(html).aperture, css), expectedError);
+  for (const [markup, expectedError] of runtimeMutations) assert.throws(() => assertRuntimeBoundary(markup, apertureFigure(markup).aperture, homeCss, apertureCss), expectedError);
+  for (const [css, expectedError] of motionMutations) assert.throws(() => assertRuntimeBoundary(html, apertureFigure(html).aperture, css, apertureCss), expectedError);
   assert.throws(() => assertScopedDisclosures(badSkillSavedRecord, frames(badSkillSavedRecord).stateFrames), /saved/);
   assert.throws(() => assertScopedDisclosures(badSkillDisclosure, frames(badSkillDisclosure).stateFrames), /not-live boundary/);
   assert.throws(() => assertScopedDisclosures(badWorkspacePlaceholder, frames(badWorkspacePlaceholder).stateFrames), /placeholder/);

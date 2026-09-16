@@ -1,0 +1,221 @@
+.aperture-shell {
+  margin-block: var(--section-space);
+}
+
+[data-aperture] {
+  position: relative;
+  width: min(72vw, 77.5rem);
+  max-width: calc(100vw - 2 * var(--gutter));
+  aspect-ratio: 22 / 10;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--charcoal);
+  color: var(--paper-bright);
+}
+
+[data-aperture-frame] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-areas: "layer";
+  overflow: hidden;
+  visibility: visible;
+  opacity: 1;
+  clip-path: inset(0);
+  transition: visibility 0s linear 360ms, opacity 360ms ease, clip-path 480ms ease;
+}
+
+[data-aperture-frame][hidden] {
+  display: grid;
+  visibility: hidden;
+  opacity: 0;
+  clip-path: inset(0 2% 0 0);
+}
+
+.aperture-visuals,
+.aperture-copy {
+  grid-area: layer;
+}
+
+.aperture-visuals {
+  position: relative;
+  overflow: hidden;
+  background: var(--charcoal);
+}
+
+.aperture-visuals img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1);
+  transition: transform 4s ease-out;
+}
+
+[data-aperture-frame]:not([hidden]) .aperture-visuals img {
+  transform: scale(1.025);
+}
+
+.aperture-layer--forklift {
+  object-position: center 54%;
+}
+
+.aperture-layer--before {
+  object-position: center;
+  clip-path: inset(0 52% 0 0);
+}
+
+.aperture-layer--after {
+  object-position: center;
+  clip-path: inset(0 0 0 49%);
+}
+
+[data-aperture-frame]:nth-of-type(3) .aperture-visuals img {
+  object-position: 18% center;
+}
+
+[data-aperture-frame]:nth-of-type(4) .aperture-visuals img {
+  object-position: center 43%;
+  transform-origin: 58% 52%;
+}
+
+[data-aperture-frame]:nth-of-type(5) .aperture-visuals img {
+  object-position: center;
+  transition: none;
+}
+
+.aperture-copy {
+  z-index: 1;
+  align-self: end;
+  justify-self: start;
+  display: grid;
+  gap: 0.7rem;
+  max-width: min(41rem, 70%);
+  margin: clamp(1rem, 3vw, 3rem);
+  padding: clamp(0.7rem, 1.5vw, 1.2rem);
+  background: var(--charcoal);
+}
+
+.aperture-copy p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1rem, 1.45vw, 1.4rem);
+  line-height: 1.25;
+}
+
+.aperture-statement {
+  font-family: var(--font-display) !important;
+  font-size: clamp(1.8rem, 4.5vw, 4.8rem) !important;
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  line-height: 0.9 !important;
+}
+
+.aperture-frame--synthesis .aperture-copy {
+  align-self: center;
+  max-width: min(56rem, 82%);
+  background: transparent;
+}
+
+[data-aperture] figcaption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.aperture-transcript {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 79.99rem) {
+  [data-aperture] {
+    width: min(86vw, 58rem);
+    aspect-ratio: 16 / 10;
+  }
+}
+
+@media (max-width: 47.99rem) {
+  [data-aperture] {
+    width: calc(100vw - 2 * var(--gutter));
+    aspect-ratio: 4 / 5;
+  }
+
+  [data-aperture-frame],
+  [data-aperture-frame][hidden] {
+    clip-path: none;
+    transition: none;
+  }
+
+  .aperture-visuals img,
+  [data-aperture-frame]:not([hidden]) .aperture-visuals img {
+    transform: none;
+    transition: none;
+  }
+
+  .aperture-layer--forklift,
+  .aperture-layer--before,
+  .aperture-layer--after {
+    object-position: 58% center;
+    clip-path: none;
+  }
+
+  [data-aperture-frame]:nth-of-type(2) .aperture-visuals img { object-position: 54% center; }
+  [data-aperture-frame]:nth-of-type(3) .aperture-visuals img { object-position: 32% center; }
+  [data-aperture-frame]:nth-of-type(4) .aperture-visuals img { object-position: 62% center; }
+  [data-aperture-frame]:nth-of-type(5) .aperture-visuals img { object-position: 51% center; }
+
+  .aperture-copy,
+  .aperture-frame--synthesis .aperture-copy {
+    align-self: end;
+    max-width: none;
+    margin: 0;
+    padding: 1.1rem var(--gutter) 1.35rem;
+    background: var(--paper-bright);
+    color: var(--ink);
+  }
+
+  .aperture-copy p {
+    font-size: 1rem;
+  }
+
+  .aperture-statement {
+    font-size: clamp(1.9rem, 10vw, 2.8rem) !important;
+  }
+}
+
+[data-aperture][data-motion="reduced"] *,
+[data-aperture][data-motion="reduced"] *::before,
+[data-aperture][data-motion="reduced"] *::after {
+  animation: none !important;
+  transition-duration: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+[data-aperture][data-motion="reduced"] [data-aperture-frame] {
+  transform: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-aperture] *,
+  [data-aperture] *::before,
+  [data-aperture] *::after {
+    animation: none !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-aperture-frame] { transform: none !important; }
+}
