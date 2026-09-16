@@ -28,6 +28,43 @@ function assertNoPpkVisibleMetrics(text) {
   assert.deepEqual(metrics, [], `PPK visible text must not publish warehouse metrics: ${metrics.join(', ')}`);
 }
 
+function assertWarehouseDisclosure(markup) {
+  const visibleText = ppkVisibleText(markup);
+  const expectedHeadings = [
+    'Problem',
+    'What I built',
+    'Architecture / decisions',
+    'Evidence',
+    'Result',
+    'Technologies',
+    'Current boundary / unfinished work',
+    'Source / demo / verification'
+  ];
+  const headings = [...markup.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  const technologies = markup.match(/<section\b[^>]*\bwarehouse-technologies\b[^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
+  const technologyItems = [...technologies.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  const requiredBoundaryStatements = [
+    { label: 'no raw operational dataset', pattern: /No raw operational dataset is published/i, text: 'No raw operational dataset is published.' },
+    { label: 'one verified run', pattern: /This result belongs to one verified run/i, text: 'This result belongs to one verified run' },
+    { label: 'separate historical analysis', pattern: /not combined with a separate historical analysis/i, text: 'not combined with a separate historical analysis' }
+  ];
+  const prohibitedOperationalContent = /(?:\b222\b|\b26 bins\b|\bWH\d+\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg|raw\s+sap\s+(?:records?|data)|(?:facility|internal)\s+(?:label|bin|record|identifier)|(?:operator|employee|personnel)\s+(?:name|id)|(?:material number|inventory record)\s*[:|])/i;
+
+  assert.deepEqual(headings, expectedHeadings);
+  assert.deepEqual(technologyItems, ['Deterministic rules', 'Data transformation', 'Verification workflow']);
+  assert.doesNotMatch(technologies, /(?:Three\.js|JavaScript|TypeScript|Python|SQL|Node|React|SAP)/i);
+  for (const { label, pattern } of requiredBoundaryStatements) {
+    assert.match(visibleText, pattern, `missing warehouse boundary statement: ${label}`);
+  }
+  assert.match(visibleText, /REWORK-verified/i);
+  assert.equal((markup.match(/<a\b[^>]*\bhref=["']https?:\/\//gi) ?? []).length, 0, 'warehouse route must not invent external credential anchors');
+  assert.doesNotMatch(markup, prohibitedOperationalContent);
+
+  return { expectedHeadings, prohibitedOperationalContent, requiredBoundaryStatements };
+}
+
 const approvedPpkVisibleContent = [
   { label: 'physical layout problem', pattern: /physical layout, storage, movement, and training/i },
   { label: 'disconnected records problem', pattern: /disconnected records/i },
@@ -114,32 +151,7 @@ test('warehouse optimization publishes its verified result without exposing oper
 
 test('warehouse route keeps its complete decision boundary and generic technology disclosure', async () => {
   const warehouse = await readFile(new URL('../projects/warehouse-optimization/index.html', import.meta.url), 'utf8');
-  const visibleText = ppkVisibleText(warehouse);
-  const expectedHeadings = [
-    'Problem',
-    'What I built',
-    'Architecture / decisions',
-    'Evidence',
-    'Result',
-    'Technologies',
-    'Current boundary / unfinished work',
-    'Source / demo / verification'
-  ];
-  const headings = [...warehouse.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
-    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
-  const technologies = warehouse.match(/<section\b[^>]*\bwarehouse-technologies\b[^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
-  const technologyItems = [...technologies.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
-    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
-  const prohibitedOperationalContent = /(?:\b222\b|\b26 bins\b|\bWH\d+\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg|raw\s+sap\s+(?:records?|data)|(?:facility|internal)\s+(?:label|bin|record|identifier)|(?:operator|employee|personnel)\s+(?:name|id)|(?:material number|inventory record)\s*[:|])/i;
-
-  assert.deepEqual(headings, expectedHeadings);
-  assert.deepEqual(technologyItems, ['Deterministic rules', 'Data transformation', 'Verification workflow']);
-  assert.doesNotMatch(technologies, /(?:Three\.js|JavaScript|TypeScript|Python|SQL|Node|React|SAP)/i);
-  assert.match(visibleText, /No raw operational dataset is published/i);
-  assert.match(visibleText, /one verified run and is not combined with a separate historical analysis/i);
-  assert.match(visibleText, /REWORK-verified/i);
-  assert.equal((warehouse.match(/<a\b[^>]*\bhref=["']https?:\/\//gi) ?? []).length, 0, 'warehouse route must not invent external credential anchors');
-  assert.doesNotMatch(warehouse, prohibitedOperationalContent);
+  const { expectedHeadings, prohibitedOperationalContent, requiredBoundaryStatements } = assertWarehouseDisclosure(warehouse);
 
   assert.throws(
     () => assert.deepEqual(
@@ -152,6 +164,24 @@ test('warehouse route keeps its complete decision boundary and generic technolog
   assert.throws(
     () => assert.match(warehouse.replace('REWORK-verified', 'verified'), /REWORK-verified/i),
     /REWORK-verified/
+  );
+  assert.throws(
+    () => assertWarehouseDisclosure(warehouse.replace('<li>Verification workflow</li>', '<li>JavaScript</li>')),
+    /JavaScript/
+  );
+  assert.throws(
+    () => assertWarehouseDisclosure(warehouse.replace('</ul>', '<li>JavaScript</li></ul>')),
+    /JavaScript/
+  );
+  for (const { label, text } of requiredBoundaryStatements) {
+    assert.throws(
+      () => assertWarehouseDisclosure(warehouse.replace(text, '')),
+      new RegExp(`missing warehouse boundary statement: ${label}`)
+    );
+  }
+  assert.throws(
+    () => assertWarehouseDisclosure(warehouse.replace('</main>', '<a href="https://credentials.example.invalid">Credential</a></main>')),
+    /must not invent external credential anchors/
   );
   assert.throws(
     () => assert.doesNotMatch(`${warehouse}\nWH1`, prohibitedOperationalContent),

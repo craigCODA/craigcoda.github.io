@@ -98,7 +98,7 @@ test('warehouse route consumes only the declared public-safe result visual', asy
 test('warehouse built output keeps the public boundary after an isolated build', async () => {
   await execFileAsync(process.execPath, ['scripts/build.mjs'], { cwd: repositoryRoot });
   const builtWarehouse = await readFile(path.join(repositoryRoot, 'dist', 'projects', 'warehouse-optimization', 'index.html'), 'utf8');
-  const prohibitedOperationalContent = /(?:\b222\b|\b26 bins\b|\bWH\d+\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg|raw\s+sap\s+(?:records?|data)|(?:facility|internal)\s+(?:label|bin|record|identifier)|(?:operator|employee|personnel)\s+(?:name|id)|(?:material number|inventory record)\s*[:|])/i;
+  const prohibitedOperationalContent = /(?:\.svg\b|\b222\b|\b26 bins\b|\bWH\d+\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg|raw\s+sap\s+(?:records?|data)|(?:facility|internal)\s+(?:label|bin|record|identifier)|(?:operator|employee|personnel)\s+(?:name|id)|(?:material number|inventory record)\s*[:|])/i;
   const outputPaths = [...builtWarehouse.matchAll(/\/assets\/evidence\/optimized\/warehouse\/warehouse-optimization-verified-result-(?:720|1200|1800)w\.(?:avif|webp)/g)]
     .map((match) => match[0])
     .sort();
@@ -116,6 +116,10 @@ test('warehouse built output keeps the public boundary after an isolated build',
   assert.throws(
     () => assert.doesNotMatch(`${builtWarehouse}\nJ01`, prohibitedOperationalContent),
     /J01/
+  );
+  assert.throws(
+    () => assert.doesNotMatch(`${builtWarehouse}\n<img src="/assets/evidence/warehouse-raw-map.svg">`, prohibitedOperationalContent),
+    /warehouse-raw-map\.svg/
   );
   assert.throws(
     () => assert.deepEqual(
