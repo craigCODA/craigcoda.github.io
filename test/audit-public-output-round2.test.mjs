@@ -37,3 +37,18 @@ test('audit requires actual exact external anchor destinations', async (context)
   const root = await fixture(context); const ppk = path.join(root, 'projects', 'ppk076', 'index.html'); const markup = await readFile(ppk, 'utf8'); await writeFile(ppk, markup.replace('href="https://github.com/craigCODA/ppk076"', 'href="https://github.com/craigCODA/ppk076-extra"').replace('</body>', '<!-- https://github.com/craigCODA/ppk076 --><a data-href="https://github.com/craigCODA/ppk076">Not an anchor destination</a></body>'));
   await assert.rejects(auditPublicOutput(root), /projects\/ppk076\/index\.html: (?:required external anchor is missing|unexpected external anchor)/);
 });
+
+for (const [label, mutate] of [
+  ['removed real anchor', (markup) => markup.replace('href="https://github.com/craigCODA/ppk076"', 'href="/"')],
+  ['comment-only URL', (markup) => markup.replace('href="https://github.com/craigCODA/ppk076"', 'href="/"').replace('</body>', '<!-- https://github.com/craigCODA/ppk076 --></body>')],
+  ['data-href-only URL', (markup) => markup.replace('href="https://github.com/craigCODA/ppk076"', 'data-href="https://github.com/craigCODA/ppk076"')],
+  ['prefix release URL', (markup) => markup.replace('href="https://github.com/craigCODA/ppk076"', 'href="https://github.com/craigCODA/ppk076/releases/tag/evidence"')]
+]) test(`audit rejects ${label} external-link substitution`, async (context) => {
+  const root = await fixture(context); const file = path.join(root, 'projects', 'ppk076', 'index.html'); await writeFile(file, mutate(await readFile(file, 'utf8')));
+  await assert.rejects(auditPublicOutput(root), /projects\/ppk076\/index\.html: (?:required external anchor is missing|unexpected external anchor)/);
+});
+
+for (const extension of ['.txt', '.csv', '']) test(`audit rejects confidential extensionless or ${extension || 'extensionless'} export`, async (context) => {
+  const root = await fixture(context); const file = path.join(root, 'assets', `confidential-export${extension}`); await writeFile(file, 'facility address: restricted\noperator name: private\nmaterial number: 12345\n');
+  await assert.rejects(auditPublicOutput(root), new RegExp(`assets/confidential-export\\${extension}: (?:sensitive warehouse details|public file type is not allowlisted)`));
+});
