@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/assets/css/reset.css">
     <link rel="stylesheet" href="/assets/css/tokens.css">
     <link rel="stylesheet" href="/assets/css/base.css">
+    <link rel="stylesheet" href="/assets/css/home.css">
     <title>Craig Ramos — Software + AI Engineering</title>
   </head>
   <body>
@@ -29,11 +30,152 @@
         </nav>
       </header>
       <main class="page-main" id="main-content" tabindex="-1">
-        <h1 class="display">Software + AI Engineering</h1>
-        <section id="work" aria-label="Work"></section>
-        <section id="background" aria-label="Background"></section>
-        <section id="verified-work" aria-label="Verified work"></section>
-        <section id="contact" aria-label="Contact"></section>
+        <section class="opening" aria-labelledby="opening-title">
+          <p class="eyebrow">Craig Ramos / Software + AI Engineering</p>
+          <h1 class="display" id="opening-title">I BUILD SYSTEMS THAT HAVE TO ANSWER TO REALITY.</h1>
+          <p class="opening-summary">My work moves from physical operations and AI evaluation to spatial computing and low-level systems engineering.</p>
+        </section>
+
+        <section class="aperture-shell" id="aperture" aria-label="Evidence sequence"></section>
+
+        <section class="systems-thesis" aria-labelledby="thesis-title">
+          <p class="eyebrow">Working thesis</p>
+          <h2 class="serif-lede" id="thesis-title">I learned physical systems before I learned to abstract them.</h2>
+          <p class="systems-chain">Mechanical work &gt; structural work &gt; electronics &gt; warehouse operations &gt; operational software &gt; AI systems &gt; spatial computing</p>
+        </section>
+
+        <section id="work" aria-labelledby="work-title">
+          <header class="section-heading">
+            <p class="eyebrow">Selected systems</p>
+            <h2 class="display" id="work-title">WORK WITH A VERIFIABLE EDGE.</h2>
+          </header>
+
+          <article class="work-piece work-piece--ppk">
+            <div class="work-piece__copy">
+              <p class="eyebrow">01 / PPK076</p>
+              <h3>Physical operations, modeled in space.</h3>
+              <p>A browser-based warehouse simulation connects modeled space, supported local operational data, training, and spatial review without creating a return path into SAP.</p>
+              <a class="text-link" href="/projects/ppk076/">Read the PPK076 case study</a>
+            </div>
+            <figure class="work-piece__hero">
+              <picture>
+                <source type="image/avif" srcset="/assets/evidence/optimized/ppk076/ppk076_first_person_forklift-640w.avif 640w, /assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1080w.avif 1080w, /assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1757w.avif 1757w" sizes="(max-width: 42rem) 100vw, 70vw">
+                <img src="/assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1080w.webp" srcset="/assets/evidence/optimized/ppk076/ppk076_first_person_forklift-640w.webp 640w, /assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1080w.webp 1080w, /assets/evidence/optimized/ppk076/ppk076_first_person_forklift-1757w.webp 1757w" sizes="(max-width: 42rem) 100vw, 70vw" width="1757" height="915" alt="First-person view inside the modeled Plant 076 production floor with a forklift, pallet load, safety rails, and equipment" loading="lazy" decoding="async">
+              </picture>
+            </figure>
+            <div class="matched-strip" aria-label="Matched warehouse evidence before and after local inventory visualization">
+              <figure>
+                <img src="/assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import-640w.webp" width="1758" height="923" alt="Matched warehouse camera before local inventory data is visualized, showing the modeled storage structure largely unpopulated" loading="lazy" decoding="async">
+                <figcaption>Before local visualization</figcaption>
+              </figure>
+              <figure>
+                <img src="/assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import-640w.webp" width="1759" height="918" alt="Same warehouse camera after supported local inventory data is visualized as pallet loads throughout the modeled facility" loading="lazy" decoding="async">
+                <figcaption>After local visualization</figcaption>
+              </figure>
+            </div>
+          </article>
+
+          <article class="work-piece work-piece--warehouse">
+            <figure class="evidence-visual">
+              <img src="/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1200w.webp" width="1800" height="1000" alt="Public-safe abstract grid beside the verified result: 176 pallet positions recovered and 22 storage bins freed" loading="lazy" decoding="async">
+            </figure>
+            <div class="work-piece__copy">
+              <p class="eyebrow">02 / Warehouse optimization</p>
+              <h3><span>176</span> pallet positions recovered.<br><span>22</span> storage bins freed.</h3>
+              <p>Deterministic decision support makes the reasoning inspectable. Human verification remains the authority for action.</p>
+              <a class="text-link" href="/projects/warehouse-optimization/">Read the warehouse optimization case study</a>
+            </div>
+          </article>
+
+          <article class="work-piece work-piece--skill">
+            <div class="work-piece__copy">
+              <p class="eyebrow">03 / Skill Evaluation Lab</p>
+              <h3>Evidence chains for agent capability claims.</h3>
+              <p>Controlled original, no-skill, and candidate conditions preserve failures, isolate state, compare runs, and narrow the claims that remain.</p>
+              <a class="text-link" href="/projects/skill-evaluation-lab/">Read the Skill Evaluation Lab case study</a>
+            </div>
+            <figure class="evidence-visual">
+              <img src="/assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map-1280w.webp" width="2400" height="1350" alt="Evidence map showing control, isolation, comparison, replication, and hash verification, with a captured saved-record status block" loading="lazy" decoding="async">
+              <figcaption>Captured saved record; not a live repository-status display.</figcaption>
+            </figure>
+          </article>
+
+          <article class="work-piece work-piece--workspace">
+            <figure class="evidence-visual">
+              <img src="/assets/evidence/optimized/workspace/workspace_m2a_room_checkpoint-1080w.webp" width="1760" height="990" alt="Saved M2A room checkpoint with a spatial screen placeholder, table, brick objects, object panel, trusted controls, and connected state" loading="lazy" decoding="async">
+              <figcaption>The large application screen is a placeholder at this checkpoint.</figcaption>
+            </figure>
+            <div class="work-piece__copy">
+              <p class="eyebrow">04 / Workspace Environment vNext</p>
+              <h3>A room is an authority model, not a skin.</h3>
+              <p>A persistent spatial world pairs objects and relationships with host-owned authority, trusted controls, and connected state.</p>
+              <a class="text-link" href="/projects/workspace-environment-vnext/">Read the Workspace Environment vNext case study</a>
+            </div>
+          </article>
+
+          <article class="work-piece work-piece--pythos">
+            <div class="work-piece__copy">
+              <p class="eyebrow">05 / PythOS</p>
+              <h3>Low-level systems, held to physical evidence.</h3>
+              <p>From-scratch x86-64 operating-system work, scoped through target-specific verification rather than broad hardware claims.</p>
+              <a class="text-link" href="/projects/pythos/">Read the PythOS case study</a>
+            </div>
+            <figure class="evidence-visual">
+              <img src="/assets/evidence/optimized/pythos/pythos_physical_evidence_terminal-1024w.webp" width="1536" height="865" alt="PythOS evidence terminal running on a physical laptop, with enough screen bezel visible to establish the hardware context" loading="lazy" decoding="async">
+            </figure>
+          </article>
+        </section>
+
+        <section id="verified-work" aria-labelledby="verified-work-title">
+          <header class="section-heading">
+            <p class="eyebrow">Evidence context</p>
+            <h2 class="display" id="verified-work-title">VERIFIED WORK</h2>
+          </header>
+          <div class="verification-row">
+            <p class="eyebrow">Operational / PPK076 + warehouse decision support</p>
+            <p><strong>176 pallet positions recovered. 22 storage bins freed.</strong> A deterministic rule boundary keeps the decision process legible; human verification authority decides the result.</p>
+          </div>
+          <div class="verification-row">
+            <p class="eyebrow">Systems / PythOS</p>
+            <p><strong>313 verification markers. Zero drops. CRC 176F4C6E.</strong> These are target-specific physical evidence, not a claim of universal hardware support.</p>
+          </div>
+        </section>
+
+        <section class="professional-engineering" aria-labelledby="engineering-title">
+          <p class="eyebrow">Professional engineering</p>
+          <h2 class="serif-lede" id="engineering-title">Production practice makes the work transferable.</h2>
+          <ul class="capability-list">
+            <li>existing React / Node codebases</li>
+            <li>full-stack business software</li>
+            <li>Git / PR workflows</li>
+            <li>testing and production builds</li>
+            <li>coding-agent SKILL development</li>
+            <li>repository-aware AI workflows</li>
+            <li>agent evaluation</li>
+            <li>documentation and handoff</li>
+          </ul>
+        </section>
+
+        <section id="background" aria-labelledby="background-title">
+          <p class="eyebrow">Background</p>
+          <h2 class="display" id="background-title">FROM MATERIAL TO MODEL.</h2>
+          <p class="background-chain">mechanical work -&gt; structural work -&gt; electronics -&gt; warehouse/logistics -&gt; operational software -&gt; professional software engineering -&gt; AI systems -&gt; PythOS / spatial computing</p>
+          <p class="serif-lede">Physical and operational understanding precedes software abstraction.</p>
+          <p class="background-lesson">The operating lesson is simple: observe the constraint, name the authority, preserve the evidence, then make the abstraction answer to what is already true.</p>
+        </section>
+
+        <section class="direction" aria-labelledby="direction-title">
+          <p class="eyebrow">Direction</p>
+          <h2 class="serif-lede" id="direction-title">What I am building toward</h2>
+          <p>Systems where objects have durable identity in space; authority has a clear owner; agents act through accountable boundaries; persistent state can be inspected; hardware is part of the truth; and verification travels with the work.</p>
+        </section>
+
+        <section id="contact" class="closing" aria-labelledby="contact-title">
+          <p class="eyebrow">Contact</p>
+          <h2 class="display" id="contact-title">CRAIG RAMOS</h2>
+          <p class="closing-role">Software / AI / Systems Engineering</p>
+          <p>Use the confirmed contact links below.</p>
+        </section>
       </main>
       <footer class="site-footer">
         <p class="meta">Craig Ramos</p>

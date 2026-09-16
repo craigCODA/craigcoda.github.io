@@ -174,6 +174,44 @@ test('homepage navigation presents the required editorial destinations in order'
   assert.deepEqual(labels, ['Work', 'Background', 'Verified Work', 'GitHub', 'Contact']);
 });
 
+test('homepage presents the evidence-led narrative landmarks in editorial order', async () => {
+  const html = await readFile(indexUrl, 'utf8');
+  const landmarks = [
+    /I BUILD SYSTEMS THAT HAVE TO ANSWER TO REALITY\./,
+    /<section\b[^>]*id=["']aperture["']/i,
+    /I learned physical systems before I learned to abstract them\./,
+    /<section\b[^>]*id=["']work["'][^>]*>/i,
+    /<section\b[^>]*id=["']verified-work["'][^>]*>/i,
+    /Professional engineering/i,
+    /<section\b[^>]*id=["']background["'][^>]*>/i,
+    /What I am building toward/i,
+    /Software \/ AI \/ Systems Engineering/
+  ];
+  let previousOffset = -1;
+
+  for (const landmark of landmarks) {
+    const match = landmark.exec(html);
+    assert.ok(match, `homepage must include ${landmark}`);
+    assert.ok(match.index > previousOffset, `homepage landmark ${landmark} must follow the prior landmark`);
+    previousOffset = match.index;
+  }
+});
+
+test('homepage work section links to all five case-study routes', async () => {
+  const html = await readFile(indexUrl, 'utf8');
+  const work = html.match(/<section\b[^>]*id=["']work["'][^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
+
+  for (const href of [
+    '/projects/ppk076/',
+    '/projects/warehouse-optimization/',
+    '/projects/skill-evaluation-lab/',
+    '/projects/workspace-environment-vnext/',
+    '/projects/pythos/'
+  ]) {
+    assert.match(work, new RegExp(`<a\\b[^>]*href=["']${href}["']`, 'i'));
+  }
+});
+
 test('homepage uses the registered public destinations and safe external link rel values', async () => {
   const html = await readFile(indexUrl, 'utf8');
   const nav = html.match(/<nav\b[^>]*>([\s\S]*?)<\/nav>/)?.[1] ?? '';
