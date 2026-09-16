@@ -101,8 +101,9 @@
 
 .pythos-document-pair {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(1rem, 3vw, 2.5rem);
+  grid-template-columns: minmax(0, 20rem);
+  justify-content: end;
+  gap: 0;
   align-items: start;
 }
 
@@ -126,13 +127,14 @@
   }
 
   .pythos-document-pair {
-    max-width: 38rem;
+    justify-content: start;
+    max-width: 20rem;
   }
 }
 
 @media (max-width: 42rem) {
   .pythos-document-pair {
-    gap: 1rem;
+    max-width: 100%;
   }
 
   .pythos-document-pair figure + figure {
