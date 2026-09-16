@@ -39,6 +39,73 @@
   border-block: 1px solid var(--line);
 }
 
+.aperture {
+  margin: 0;
+}
+
+.aperture-frame {
+  display: grid;
+  min-height: clamp(22rem, 52vw, 48rem);
+  grid-template-columns: minmax(0, 1.35fr) minmax(14rem, 0.65fr);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  align-items: end;
+  padding-block: clamp(1.5rem, 4vw, 4rem);
+}
+
+.aperture-visuals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+}
+
+.aperture-layer {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--paper);
+}
+
+.aperture-copy {
+  display: grid;
+  gap: 1rem;
+  max-width: 30rem;
+}
+
+.aperture-copy p {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--serif-body);
+  line-height: 1.3;
+}
+
+.aperture-statement {
+  font-family: var(--font-display) !important;
+  font-size: var(--display-section) !important;
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  line-height: 0.92 !important;
+}
+
+.aperture figcaption {
+  padding-bottom: 1rem;
+  color: var(--muted);
+  font-size: var(--utility);
+  line-height: 1.4;
+}
+
+.aperture-transcript {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .systems-thesis,
 .professional-engineering,
 #background,
@@ -257,6 +324,15 @@
 
   .aperture-shell {
     min-height: 20rem;
+  }
+
+  .aperture-frame {
+    min-height: 20rem;
+    grid-template-columns: 1fr;
+  }
+
+  .aperture-visuals {
+    grid-template-columns: 1fr;
   }
 
   .work-piece,

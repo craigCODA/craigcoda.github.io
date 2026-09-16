@@ -335,6 +335,83 @@ test('homepage presents the evidence-led narrative landmarks in editorial order'
   }
 });
 
+test('aperture publishes the six authored evidence states without carousel controls or motion code', async () => {
+  const [html, provenance, homeCss] = await Promise.all([
+    readFile(indexUrl, 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse),
+    readFile(homeCssUrl, 'utf8')
+  ]);
+  const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const aperture = sectionBody(html, 'aperture');
+  const figures = [...aperture.matchAll(/<figure\b([^>]*)>([\s\S]*?)<\/figure>/gi)];
+  const expectedFrames = [
+    ['4000', 'I MODEL PHYSICAL SYSTEMS.', 'Physical operations, modeled in software.'],
+    ['3500', 'I TURN OPERATIONS INTO DECISION SYSTEMS.', '176 pallet positions recovered. 22 bins freed.'],
+    ['4000', 'I TEST WHAT AGENTS ACTUALLY DO.', 'Agents tested against preserved evidence.'],
+    ['4000', 'I RETHINK HOW THE COMPUTER CAN FEEL.', 'Spatial computing, persistent by design.'],
+    ['4500', 'I BUILD BELOW THE APPLICATION LAYER.', 'A from-scratch, verification-driven operating system.'],
+    ['3000', 'PHYSICAL SYSTEMS. SOFTWARE SYSTEMS. AI SYSTEMS. COMPUTER SYSTEMS.', 'I BUILD WHERE THOSE LAYERS MEET.']
+  ];
+
+  assert.equal(figures.length, 1, '#aperture must contain one aperture figure');
+  assert.equal(parseAttributes(`<figure${figures[0][1]}>`).has('data-aperture'), true);
+
+  const frames = articles(figures[0][2]);
+  assert.equal(frames.length, expectedFrames.length, 'aperture must retain all six authored states');
+  for (const [index, [duration, statement, supportingCopy]] of expectedFrames.entries()) {
+    const frame = frames[index];
+    assert.equal(frame.attributes.has('data-aperture-frame'), true, `frame ${index + 1} must be an aperture state`);
+    assert.equal(frame.attributes.get('data-duration'), duration, `frame ${index + 1} must preserve its authored duration`);
+    assert.match(frame.body, new RegExp(statement.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.match(frame.body, new RegExp(supportingCopy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  const frameImages = frames.map(({ body }) => openingTags(body, 'img').map(({ attributes }) => attributes));
+  assert.equal(frameImages[0].length, 3, 'physical-systems state must retain forklift plus matched-camera transition evidence');
+  assert.equal(frameImages[5].length, 0, 'the synthesis state must remain text-only');
+
+  const expectedStems = [
+    [
+      'assets/evidence/optimized/ppk076/ppk076_first_person_forklift',
+      'assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import',
+      'assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import'
+    ],
+    ['assets/evidence/optimized/warehouse/warehouse-optimization-verified-result'],
+    ['assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map'],
+    ['assets/evidence/optimized/workspace/workspace_m2a_room_checkpoint'],
+    ['assets/evidence/optimized/pythos/pythos_physical_evidence_terminal'],
+    []
+  ];
+  for (const [index, images] of frameImages.entries()) {
+    const stems = images.map((attributes) => {
+      const src = attributes.get('src') ?? attributes.get('data-src') ?? '';
+      const match = src.match(/^\/(assets\/evidence\/optimized\/.+)-(\d+)w\.webp$/);
+      assert.ok(match, `frame ${index + 1} must use an optimized WebP evidence candidate`);
+      const evidence = registeredEvidence.get(match[1]);
+      assert.ok(evidence, `frame ${index + 1} evidence must be provenance-traced`);
+      assert.equal(attributes.get('alt'), evidence.alt, `frame ${index + 1} must retain its registered alt text`);
+      assert.equal(attributes.get('width'), String(evidence.sourceWidth));
+      assert.equal(attributes.get('height'), String(evidence.sourceHeight));
+      return match[1];
+    });
+    assert.deepEqual(stems.sort(), expectedStems[index].slice().sort(), `frame ${index + 1} must use its approved evidence`);
+  }
+
+  assert.equal(frameImages[0].every((attributes) => attributes.has('src') && attributes.has('srcset')), true, 'the initial physical-systems state must have live responsive sources');
+  assert.equal(frameImages.slice(1, 5).flat().every((attributes) => !attributes.has('src') && attributes.has('data-src') && attributes.has('data-srcset')), true, 'later visual states must retain deferred responsive candidates');
+  assert.match(aperture, /<ol\b[^>]*\bclass=["'][^"']*\baperture-transcript\b[^"']*["'][^>]*>/i, 'aperture must include its complete visually hidden transcript');
+  assert.equal(/\baria-live\s*=/i.test(aperture), false, 'aperture must not repeatedly announce state changes');
+  assert.equal(/\b(?:carousel|previous|next|arrow|dot|loop)\b/i.test(aperture), false, 'aperture is authored evidence, not a user-controlled carousel');
+  assert.equal(/<script\b/i.test(aperture), false, 'static aperture content must not embed behavior code');
+
+  const apertureDeclarations = parseCssRules(homeCss)
+    .filter((rule) => rule.selectors.some((selector) => selector.startsWith('.aperture')))
+    .flatMap((rule) => rule.declarations.map((declaration) => declaration.property));
+  for (const property of ['animation', 'transition', 'transform', 'opacity']) {
+    assert.equal(apertureDeclarations.includes(property), false, `static aperture styles must not depend on ${property}`);
+  }
+});
+
 test('homepage preserves the complete post-aperture physical-systems progression', async () => {
   const html = await readFile(indexUrl, 'utf8');
   const thesis = html.match(/<section\b[^>]*class=["'][^"']*\bsystems-thesis\b[^"']*["'][^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
@@ -496,15 +573,15 @@ test('work is exactly five semantic evidence articles bound to their routes and 
   }
 });
 
-test('every homepage evidence image resolves to provenance with its registered intrinsic contract', async () => {
+test('every selected work evidence image resolves to provenance with its registered intrinsic contract', async () => {
   const [html, provenance] = await Promise.all([
     readFile(indexUrl, 'utf8'),
     readFile(provenanceUrl, 'utf8').then(JSON.parse)
   ]);
   const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
-  const images = openingTags(html, 'img');
+  const images = openingTags(sectionBody(html, 'work'), 'img');
 
-  assert.equal(images.length, 7, 'homepage evidence should remain the selected seven-image set');
+  assert.equal(images.length, 7, 'work evidence should remain the selected seven-image set');
   for (const { attributes } of images) assertEvidenceImage(attributes, registeredEvidence);
 });
 
