@@ -79,6 +79,19 @@ test('excluded raw warehouse bin map is neither registered nor copied', async ()
   await assert.rejects(access(path.join(evidenceRoot, 'original', excludedSource)));
 });
 
+test('warehouse route consumes only the declared public-safe result visual', async () => {
+  const [records, warehouse] = await Promise.all([
+    readProvenance(),
+    readFile(new URL('../projects/warehouse-optimization/index.html', import.meta.url), 'utf8')
+  ]);
+  const visual = records.find(({ outputStem }) => outputStem === 'assets/evidence/optimized/warehouse/warehouse-optimization-verified-result');
+
+  assert.equal(visual?.disclosure, 'public-safe generated abstraction');
+  assert.deepEqual(visual?.roles, ['aperture', 'warehouse hero', 'verified work']);
+  assert.match(warehouse, /\/assets\/evidence\/optimized\/warehouse\/warehouse-optimization-verified-result-1800w\.webp/i);
+  assert.doesNotMatch(warehouse, /\.svg\b|warehouse_wh1_bin_map_high_quality\.svg/i);
+});
+
 test('all declared responsive variants exist after asset generation', async () => {
   const records = await readProvenance();
 

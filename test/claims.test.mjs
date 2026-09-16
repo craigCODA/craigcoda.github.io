@@ -93,6 +93,25 @@ test('PPK076 describes the supported local boundary without exposing inventory r
   }
 });
 
+test('warehouse optimization publishes its verified result without exposing operational identifiers', async () => {
+  const warehouse = await readFile(new URL('../projects/warehouse-optimization/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(warehouse);
+
+  for (const claim of [
+    /176 pallet positions recovered/i,
+    /22 storage bins freed/i,
+    /Measured before\/after occupancy/i,
+    /Human verification remained authoritative/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+
+  assert.doesNotMatch(
+    visibleText,
+    /(?:\b222\b|\b26 bins\b|\bWH1\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg)/i
+  );
+});
+
 test('homepage publishes only the approved evidence-led claims', async () => {
   const home = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const publicHtml = await Promise.all(publicDocuments.map((document) => readFile(new URL(document, import.meta.url), 'utf8')));

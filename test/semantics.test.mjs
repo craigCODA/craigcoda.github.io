@@ -754,6 +754,36 @@ test('work is exactly five semantic evidence articles bound to their routes and 
   }
 });
 
+test('warehouse route provides the shared case-study sections and its public-safe evidence figure', async () => {
+  const [warehouse, provenance] = await Promise.all([
+    readFile(new URL('../projects/warehouse-optimization/index.html', import.meta.url), 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse)
+  ]);
+  const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const expectedHeadings = [
+    'Problem',
+    'What I built',
+    'Architecture / decisions',
+    'Evidence',
+    'Result',
+    'Technologies',
+    'Current boundary / unfinished work',
+    'Source / demo / verification'
+  ];
+
+  assert.match(warehouse, /<link rel=["']stylesheet["'] href=["']\/assets\/css\/projects\/warehouse\.css["']>/i);
+  for (const heading of expectedHeadings) {
+    assert.match(warehouse, new RegExp(`<h2\\b[^>]*>\\s*${heading}\\s*<\\/h2>`, 'i'));
+  }
+
+  const images = openingTags(warehouse, 'img');
+  assert.equal(images.length, 1, 'warehouse route must use one public-safe result visual');
+  assert.equal(
+    assertEvidenceImage(images[0].attributes, registeredEvidence),
+    'assets/evidence/optimized/warehouse/warehouse-optimization-verified-result'
+  );
+});
+
 test('every selected work evidence image resolves to provenance with its registered intrinsic contract', async () => {
   const [html, provenance] = await Promise.all([
     readFile(indexUrl, 'utf8'),

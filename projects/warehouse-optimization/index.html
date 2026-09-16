@@ -1,2 +1,100 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/assets/css/reset.css"><link rel="stylesheet" href="/assets/css/tokens.css"><link rel="stylesheet" href="/assets/css/base.css"><title>Warehouse Optimization — Craig Ramos</title></head><body><a class="skip-link" href="#main-content">Skip to content</a><main class="page-shell page-main" id="main-content" tabindex="-1"><p class="eyebrow">Project</p><h1 class="display">Warehouse Optimization</h1><p><a class="text-link" href="/">Return home</a></p></main></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Warehouse optimization decision support: a verified, reviewable proposal for recovering pallet positions and freeing storage bins.">
+  <link rel="stylesheet" href="/assets/css/reset.css">
+  <link rel="stylesheet" href="/assets/css/tokens.css">
+  <link rel="stylesheet" href="/assets/css/base.css">
+  <link rel="stylesheet" href="/assets/css/project.css">
+  <link rel="stylesheet" href="/assets/css/projects/warehouse.css">
+  <title>Warehouse Optimization — Verified Evidence Case Study — Craig Ramos</title>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <main class="page-main warehouse-page" id="main-content" tabindex="-1">
+    <header class="project-header page-shell">
+      <p class="eyebrow">Operational evidence case study</p>
+      <h1 class="display">Warehouse Optimization</h1>
+      <p class="serif-lede">A reviewable proposal for recovering usable storage capacity without treating operations as an abstract capacity number.</p>
+      <p><a class="text-link" href="/">Return home</a></p>
+    </header>
+
+    <section class="project-section page-shell warehouse-problem" aria-labelledby="problem-title">
+      <h2 id="problem-title">Problem</h2>
+      <p class="serif-lede">Operational storage decisions were constrained by real occupancy and handling rules, not an abstract capacity number.</p>
+    </section>
+
+    <section class="project-section page-shell warehouse-built" aria-labelledby="built-title">
+      <h2 id="built-title">What I built</h2>
+      <p class="serif-lede">Deterministic decision support that compares occupancy, applies explicit rules, and produces a reviewable proposal.</p>
+    </section>
+
+    <section class="project-section page-shell warehouse-architecture" aria-labelledby="architecture-title">
+      <h2 id="architecture-title">Architecture / decisions</h2>
+      <ol class="warehouse-flow" aria-label="Decision-support method">
+        <li><strong>Input normalization</strong><span>Prepare the verified run for consistent comparison.</span></li>
+        <li><strong>Deterministic rule evaluation</strong><span>Apply explicit storage and handling constraints.</span></li>
+        <li><strong>Before/after comparison</strong><span>Measure the proposal against the observed occupancy state.</span></li>
+        <li><strong>Human verification</strong><span>Keep the approval decision at the operational boundary.</span></li>
+      </ol>
+      <p class="warehouse-decision-boundary">The decision boundary is explicit: the method produces a proposal; a person authorizes the operational outcome.</p>
+    </section>
+
+    <section class="project-section page-shell warehouse-evidence" aria-labelledby="evidence-title">
+      <h2 id="evidence-title">Evidence</h2>
+      <div class="warehouse-evidence-copy">
+        <p>The public record is a safe abstraction, paired with a textual methodology ledger. It makes the result reviewable without publishing a raw operational dataset.</p>
+        <p>This visual is not a live SAP or facility map. It is a public-safe representation of a verified result.</p>
+      </div>
+    </section>
+
+    <section class="project-section warehouse-result" aria-labelledby="result-title">
+      <div class="page-shell">
+        <h2 id="result-title">Result</h2>
+        <div class="warehouse-result-layout">
+          <div class="warehouse-metrics" aria-label="Verified results">
+            <p><strong>176</strong><span>pallet positions recovered</span></p>
+            <p><strong>22</strong><span>storage bins freed</span></p>
+          </div>
+          <figure class="evidence-figure warehouse-result-visual">
+            <picture>
+              <source type="image/avif" srcset="/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-720w.avif 720w, /assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1200w.avif 1200w, /assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1800w.avif 1800w" sizes="(max-width: 42rem) 100vw, 52vw">
+              <source type="image/webp" srcset="/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-720w.webp 720w, /assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1200w.webp 1200w, /assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1800w.webp 1800w" sizes="(max-width: 42rem) 100vw, 52vw">
+              <img src="/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1800w.webp" alt="Public-safe abstract grid beside the verified result: 176 pallet positions recovered and 22 storage bins freed" width="1800" height="1000" decoding="async" loading="lazy">
+            </picture>
+            <figcaption>Public-safe result abstraction; not a live operational record or facility map.</figcaption>
+          </figure>
+        </div>
+        <div class="warehouse-ledger" aria-label="Rules and verification ledger">
+          <p><span>01</span>Measured before/after occupancy</p>
+          <p><span>02</span>Explicit rules generated a reviewable proposal</p>
+          <p><span>03</span>Human verification remained authoritative</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="project-section page-shell warehouse-technologies" aria-labelledby="technologies-title">
+      <h2 id="technologies-title">Technologies</h2>
+      <ul class="fact-list" aria-label="Confirmed methods">
+        <li>Deterministic rules</li>
+        <li>Data transformation</li>
+        <li>Verification workflow</li>
+      </ul>
+    </section>
+
+    <section class="project-section page-shell" aria-labelledby="boundary-title">
+      <h2 id="boundary-title">Current boundary / unfinished work</h2>
+      <div class="boundary-note warehouse-boundary-note">
+        <p>No raw operational dataset is published. This result belongs to one verified run and is not combined with a separate historical analysis.</p>
+      </div>
+    </section>
+
+    <section class="project-section page-shell warehouse-verification" aria-labelledby="links-title">
+      <h2 id="links-title">Source / demo / verification</h2>
+      <p>This result is REWORK-verified. No external credential anchor is published because no authoritative public URL has been supplied.</p>
+    </section>
+  </main>
+</body>
+</html>

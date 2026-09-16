@@ -1,0 +1,181 @@
+.warehouse-page {
+  padding-bottom: clamp(5rem, 12vw, 10rem);
+}
+
+.warehouse-problem {
+  margin-left: auto;
+  width: min(100%, 72rem);
+}
+
+.warehouse-built {
+  border-top: 1px solid var(--line);
+  padding-top: clamp(2rem, 5vw, 5rem);
+}
+
+.warehouse-architecture {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.72fr) minmax(18rem, 1.28fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: start;
+}
+
+.warehouse-architecture h2 {
+  margin-bottom: 0;
+}
+
+.warehouse-flow {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--ink);
+}
+
+.warehouse-flow li,
+.warehouse-ledger p {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.8fr) minmax(0, 1.2fr);
+  gap: 1rem;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 1rem 0;
+}
+
+.warehouse-flow strong,
+.warehouse-ledger span {
+  font-size: var(--utility);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.warehouse-flow span {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.warehouse-decision-boundary {
+  grid-column: 2;
+  margin: 1.5rem 0 0;
+  border-left: 0.35rem solid currentColor;
+  padding-left: 1rem;
+}
+
+.warehouse-evidence {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.72fr) minmax(18rem, 1.28fr);
+  gap: clamp(2rem, 7vw, 9rem);
+}
+
+.warehouse-evidence h2 {
+  margin-bottom: 0;
+}
+
+.warehouse-evidence-copy p {
+  margin: 0;
+}
+
+.warehouse-evidence-copy p + p {
+  margin-top: 1.25rem;
+}
+
+.warehouse-result {
+  padding-block: clamp(4rem, 8vw, 8rem);
+  background: var(--charcoal);
+  color: var(--paper-bright);
+}
+
+.warehouse-result-layout {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.82fr) minmax(20rem, 1.18fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: center;
+}
+
+.warehouse-metrics {
+  display: grid;
+  gap: clamp(2rem, 5vw, 5rem);
+}
+
+.warehouse-metrics p {
+  margin: 0;
+}
+
+.warehouse-metrics strong,
+.warehouse-metrics span {
+  display: block;
+}
+
+.warehouse-metrics strong {
+  font-family: var(--font-display);
+  font-size: clamp(5rem, 14vw, 13rem);
+  letter-spacing: -0.09em;
+  line-height: 0.72;
+}
+
+.warehouse-metrics span {
+  max-width: 14ch;
+  margin-top: 0.85rem;
+  font-family: var(--font-serif);
+  font-size: var(--serif-body);
+  line-height: 1.1;
+}
+
+.warehouse-result-visual {
+  border: 1px solid color-mix(in srgb, var(--paper-bright) 70%, transparent);
+  padding: clamp(0.5rem, 1.25vw, 1rem);
+}
+
+.warehouse-result-visual figcaption {
+  color: var(--paper);
+}
+
+.warehouse-ledger {
+  margin-top: clamp(3rem, 8vw, 8rem);
+  border-top: 1px solid var(--paper-bright);
+}
+
+.warehouse-ledger p {
+  grid-template-columns: minmax(4rem, 0.2fr) minmax(0, 1fr);
+  border-color: color-mix(in srgb, var(--paper-bright) 45%, transparent);
+}
+
+.warehouse-technologies {
+  margin-left: auto;
+  width: min(100%, 76rem);
+}
+
+.warehouse-boundary-note {
+  border-left-color: var(--ink);
+}
+
+.warehouse-verification {
+  border-top: 1px solid var(--line);
+  padding-top: clamp(2rem, 5vw, 5rem);
+}
+
+@media (max-width: 42rem) {
+  .warehouse-architecture,
+  .warehouse-evidence,
+  .warehouse-result-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .warehouse-architecture h2,
+  .warehouse-evidence h2,
+  .warehouse-decision-boundary {
+    grid-column: auto;
+  }
+
+  .warehouse-flow li,
+  .warehouse-ledger p {
+    grid-template-columns: minmax(5rem, 0.42fr) minmax(0, 1fr);
+  }
+
+  .warehouse-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  .warehouse-metrics strong {
+    font-size: clamp(4rem, 22vw, 7rem);
+  }
+}
