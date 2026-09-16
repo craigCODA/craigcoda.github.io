@@ -178,6 +178,14 @@
   color: #c8c9c4;
 }
 
+.pythos-metrics {
+  padding-top: 1rem;
+  border-top: 1px solid #53575a;
+  font-family: var(--font-serif);
+  font-size: var(--serif-body);
+  line-height: 1.35;
+}
+
 .verification-row {
   display: grid;
   grid-template-columns: minmax(12rem, 0.55fr) minmax(0, 1.45fr);

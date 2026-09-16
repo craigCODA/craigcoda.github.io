@@ -13,7 +13,7 @@
   --gutter: clamp(1rem, 5.5vw, 6rem);
   --measure: 46rem;
   --page-max: 100rem;
-  --section-space: clamp(7rem, 14vw, 15rem);
+  --section-space: clamp(10rem, 14vw, 15rem);
   --display-hero: clamp(2.75rem, 7vw, 6rem);
   --display-section: clamp(2.125rem, 5vw, 4.5rem);
   --serif-large: clamp(1.75rem, 3.25vw, 2.625rem);

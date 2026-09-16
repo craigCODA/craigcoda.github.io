@@ -26,3 +26,13 @@ test('homepage publishes only the approved evidence-led claims', async () => {
   assert.match(home, /176F4C6E/i);
   assert.match(home, /target-specific/i);
 });
+
+test('selected PythOS evidence band carries its target-specific metrics', async () => {
+  const home = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const pythosBand = home.match(/<article\b[^>]*class=["'][^"']*\bwork-piece--pythos\b[^"']*["'][^>]*>([\s\S]*?)<\/article>/i)?.[1] ?? '';
+
+  assert.match(pythosBand, /313 verification markers/i);
+  assert.match(pythosBand, /zero drops/i);
+  assert.match(pythosBand, /CRC 176F4C6E/i);
+  assert.match(pythosBand, /target-specific physical evidence/i);
+});

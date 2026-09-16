@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const indexUrl = new URL('../index.html', import.meta.url);
 const baseCssUrl = new URL('../assets/css/base.css', import.meta.url);
+const tokensCssUrl = new URL('../assets/css/tokens.css', import.meta.url);
+const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
 const textLinkDocuments = [
   '../404.html',
   '../projects/ppk076/index.html',
@@ -197,6 +199,16 @@ test('homepage presents the evidence-led narrative landmarks in editorial order'
   }
 });
 
+test('homepage preserves the complete post-aperture physical-systems progression', async () => {
+  const html = await readFile(indexUrl, 'utf8');
+  const thesis = html.match(/<section\b[^>]*class=["'][^"']*\bsystems-thesis\b[^"']*["'][^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
+  const renderedThesis = thesis.replaceAll('&gt;', '>').replace(/\s+/g, ' ').trim();
+
+  assert.ok(renderedThesis.includes(
+    'Mechanical work > structural work > electronics > warehouse operations > operational software > AI systems > spatial computing > operating systems'
+  ));
+});
+
 test('homepage work section links to all five case-study routes', async () => {
   const html = await readFile(indexUrl, 'utf8');
   const work = html.match(/<section\b[^>]*id=["']work["'][^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
@@ -271,4 +283,26 @@ test('narrow-screen styles give every current link control a 44-pixel touch targ
   assert.equal(focusedSkipLink.get('transform'), 'translateY(0)');
   assert.equal(navLink.get('min-height'), '2.75rem');
   assert.equal(footerLink.get('min-height'), '2.75rem');
+});
+
+test('homepage major sections resolve to 160–240 pixel fluid editorial gaps', async () => {
+  const [tokensCss, homeCss] = await Promise.all([
+    readFile(tokensCssUrl, 'utf8'),
+    readFile(homeCssUrl, 'utf8')
+  ]);
+  const sectionSpace = effectiveExactDeclarations(parseCssRules(tokensCss), ':root').get('--section-space');
+  const resolvedRange = sectionSpace?.match(/^clamp\(\s*([\d.]+)rem\s*,\s*[\d.]+vw\s*,\s*([\d.]+)rem\s*\)$/);
+
+  assert.ok(resolvedRange, '--section-space must be a fluid rem-based clamp');
+  assert.equal(Number(resolvedRange[1]) * 16, 160);
+  assert.equal(Number(resolvedRange[2]) * 16, 240);
+
+  const homeRules = parseCssRules(homeCss);
+  for (const selector of ['.aperture-shell', '.systems-thesis', '#work', '#verified-work', '.professional-engineering', '#background', '.direction', '.closing']) {
+    assert.equal(
+      effectiveExactDeclarations(homeRules, selector).get('margin-block'),
+      'var(--section-space)',
+      `${selector} must consume the fluid major-section gap`
+    );
+  }
 });
