@@ -53,7 +53,7 @@ function assertLink(markup, label, href, { safeExternal = false } = {}) {
 }
 
 function parseDeclarations(block) {
-  const declarations = new Map();
+  const declarations = [];
 
   for (const source of block.split(';')) {
     const separator = source.indexOf(':');
@@ -63,27 +63,93 @@ function parseDeclarations(block) {
     const rawValue = source.slice(separator + 1).trim();
     const important = /\s*!important\s*$/i.test(rawValue);
     const value = rawValue.replace(/\s*!important\s*$/i, '').trim();
-    declarations.set(property, { value, important });
+    declarations.push({ property, value, important });
   }
 
   return declarations;
 }
 
-function effectiveDeclarations(css, targetSelector) {
-  const effective = new Map();
+function matchingBrace(source, openingBrace) {
+  let depth = 1;
+
+  for (let index = openingBrace + 1; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') depth -= 1;
+    if (depth === 0) return index;
+  }
+
+  throw new Error('Unclosed CSS block in test fixture');
+}
+
+function parseCssRules(css) {
+  const rules = [];
   const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
-  for (const rule of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const selectors = rule[1].split(',').map((selector) => selector.trim());
-    if (!selectors.includes(targetSelector)) continue;
+  function visit(source, atRules = []) {
+    let cursor = 0;
 
-    for (const [property, declaration] of parseDeclarations(rule[2])) {
-      const current = effective.get(property);
-      if (!current?.important || declaration.important) effective.set(property, declaration);
+    while (cursor < source.length) {
+      const openingBrace = source.indexOf('{', cursor);
+      if (openingBrace === -1) break;
+
+      const prelude = source.slice(cursor, openingBrace).trim();
+      const closingBrace = matchingBrace(source, openingBrace);
+      const block = source.slice(openingBrace + 1, closingBrace);
+
+      if (prelude.startsWith('@')) {
+        visit(block, [...atRules, prelude]);
+      } else if (prelude) {
+        rules.push({
+          selectors: prelude.split(',').map((selector) => selector.trim()),
+          declarations: parseDeclarations(block),
+          atRules
+        });
+      }
+
+      cursor = closingBrace + 1;
+    }
+  }
+
+  visit(withoutComments);
+  return rules;
+}
+
+// This is intentionally not a general CSS cascade implementation. The site contract
+// permits transforms only on these exact skip-link selectors; the companion guard
+// below rejects alternate selectors that could otherwise win through specificity.
+function effectiveExactDeclarations(rules, targetSelector) {
+  const effective = new Map();
+
+  for (const rule of rules) {
+    if (!rule.selectors.includes(targetSelector)) continue;
+
+    for (const declaration of rule.declarations) {
+      const current = effective.get(declaration.property);
+      if (!current?.important || declaration.important) {
+        effective.set(declaration.property, declaration);
+      }
     }
   }
 
   return new Map([...effective].map(([property, declaration]) => [property, declaration.value]));
+}
+
+function hasDeclaration(rule, property) {
+  return rule.declarations.some((declaration) => declaration.property === property);
+}
+
+function isRequiredNarrowMediaRule(rule) {
+  return rule.atRules.some((atRule) => /^@media\s*\(\s*max-width\s*:\s*42rem\s*\)$/i.test(atRule));
+}
+
+function assertNoAlternateSkipLinkTransforms(rules) {
+  const permittedSelectors = new Set(['.skip-link', '.skip-link:focus']);
+  const alternateSelectors = rules
+    .filter((rule) => hasDeclaration(rule, 'transform'))
+    .flatMap((rule) => rule.selectors)
+    .filter((selector) => /\.skip-link\b/.test(selector) && !permittedSelectors.has(selector));
+
+  assert.deepEqual(alternateSelectors, [], 'skip-link transforms must use a permitted exact selector');
 }
 
 test('homepage exposes one accessible publication shell', async () => {
@@ -144,11 +210,15 @@ test('every current text-link document loads its shared styles and marks its ret
 
 test('narrow-screen styles give every current link control a 44-pixel touch target', async () => {
   const css = await readFile(baseCssUrl, 'utf8');
-  const textLink = effectiveDeclarations(css, '.text-link');
-  const skipLink = effectiveDeclarations(css, '.skip-link');
-  const focusedSkipLink = effectiveDeclarations(css, '.skip-link:focus');
-  const navLink = effectiveDeclarations(css, '.site-nav a');
-  const footerLink = effectiveDeclarations(css, '.site-footer a');
+  const rules = parseCssRules(css);
+  const narrowRules = rules.filter(isRequiredNarrowMediaRule);
+  const textLink = effectiveExactDeclarations(narrowRules, '.text-link');
+  const skipLink = effectiveExactDeclarations(rules, '.skip-link');
+  const focusedSkipLink = effectiveExactDeclarations(rules, '.skip-link:focus');
+  const navLink = effectiveExactDeclarations(rules, '.site-nav a');
+  const footerLink = effectiveExactDeclarations(rules, '.site-footer a');
+
+  assertNoAlternateSkipLinkTransforms(rules);
 
   assert.equal(textLink.get('display'), 'inline-flex');
   assert.equal(textLink.get('align-items'), 'center');
