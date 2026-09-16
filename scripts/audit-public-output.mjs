@@ -186,7 +186,7 @@ export async function auditPublicOutput(outputRoot) {
   for (const { absolutePath, relativePath } of files) {
     const extension = path.extname(relativePath).toLowerCase();
     if (path.basename(relativePath) === 'warehouse_wh1_bin_map_high_quality.svg') fail(relativePath, 'warehouse SVG filename');
-    if (TEXT_EXTENSIONS.has(extension)) {
+    if (TEXT_EXTENSIONS.has(extension) || relativePath === '.nojekyll') {
       const content = await readFile(absolutePath, 'utf8');
       for (const [rule, pattern] of forbiddenText) if (typeof pattern === 'string' ? content.includes(pattern) : pattern.test(content)) fail(relativePath, rule);
       if (warehouseDisclosurePattern.test(content)) fail(relativePath, 'restricted warehouse counts');

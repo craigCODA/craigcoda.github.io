@@ -29,9 +29,13 @@ test('audit rejects confidential HTML and raw text exports', async (context) => 
   const home = path.join(root, 'index.html'); await writeFile(home, (await readFile(home, 'utf8')).replace(disclosure, '')); const exportPath = path.join(root, 'assets', 'warehouse-export.csv'); await writeFile(exportPath, 'operator,material\nAlice,12345\n'); await assert.rejects(auditPublicOutput(root), /assets\/warehouse-export\.csv: public file type is not allowlisted/);
 });
 test('audit rejects extra route documents and directory references', async (context) => {
-  const root = await fixture(context); const secretRoute = path.join(root, 'projects', 'secret'); await mkdir(secretRoute); await writeFile(path.join(secretRoute, 'index.html'), '<!doctype html><title>Private</title>'); await assert.rejects(auditPublicOutput(root), /projects\/secret: unregistered built route directory/);
+  const root = await fixture(context); const secretRoute = path.join(root, 'projects', 'secret'); await mkdir(secretRoute); await assert.rejects(auditPublicOutput(root), /projects\/secret: unregistered built route directory/);
   await rm(secretRoute, { recursive: true }); await appendHome(root, '<a href="/projects/">Directory</a>'); await assert.rejects(auditPublicOutput(root), /href does not resolve: \/projects\//);
   const home = path.join(root, 'index.html'); await writeFile(home, (await readFile(home, 'utf8')).replace('href="/projects/"', 'href="/projects"')); await assert.rejects(auditPublicOutput(root), /href targets a directory: \/projects/);
+});
+test('audit scans confidential extensionless .nojekyll content before hash validation', async (context) => {
+  const root = await fixture(context); await writeFile(path.join(root, '.nojekyll'), 'facility address: confidential operator name');
+  await assert.rejects(auditPublicOutput(root), /\.nojekyll: sensitive warehouse details/);
 });
 test('audit requires actual exact external anchor destinations', async (context) => {
   const root = await fixture(context); const ppk = path.join(root, 'projects', 'ppk076', 'index.html'); const markup = await readFile(ppk, 'utf8'); await writeFile(ppk, markup.replace('href="https://github.com/craigCODA/ppk076"', 'href="https://github.com/craigCODA/ppk076-extra"').replace('</body>', '<!-- https://github.com/craigCODA/ppk076 --><a data-href="https://github.com/craigCODA/ppk076">Not an anchor destination</a></body>'));

@@ -16,7 +16,7 @@ async function startServer(root) {
   return { child, port };
 }
 
-test('preview rejects symlink or junction escapes after real-path resolution', async (context) => {
+async function assertEscape(context, linkType) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'portfolio-preview-root-'));
   const outside = await mkdtemp(path.join(os.tmpdir(), 'portfolio-preview-outside-'));
   context.after(() => rm(root, { recursive: true, force: true }));
@@ -25,7 +25,6 @@ test('preview rejects symlink or junction escapes after real-path resolution', a
   await writeFile(path.join(root, '404.html'), 'missing');
   await writeFile(path.join(outside, 'secret.txt'), 'outside');
   const escape = path.join(root, 'escape');
-  const linkType = process.platform === 'win32' ? 'junction' : 'dir';
   try {
     await symlink(outside, escape, linkType);
   } catch (error) {
@@ -37,4 +36,14 @@ test('preview rejects symlink or junction escapes after real-path resolution', a
   const response = await fetch(`http://127.0.0.1:${port}/escape/secret.txt`);
   assert.equal(response.status, 403, `${process.platform} ${linkType} escape must be forbidden`);
   assert.notEqual(await response.text(), 'outside');
+}
+
+test('POSIX preview rejects a directory-symlink escape', async (context) => {
+  if (process.platform === 'win32') context.skip('POSIX symlink test skipped on Windows; Windows junction test provides local containment evidence');
+  await assertEscape(context, 'dir');
+});
+
+test('Windows preview rejects a junction/reparse escape', async (context) => {
+  if (process.platform !== 'win32') context.skip('Windows junction test skipped on POSIX');
+  await assertEscape(context, 'junction');
 });
