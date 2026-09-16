@@ -32,6 +32,26 @@ async function readProvenance() {
   return JSON.parse(await readFile(provenancePath, 'utf8'));
 }
 
+function largestApertureRecords(records) {
+  return records.filter(({ roles }) => roles.some((role) => role.startsWith('aperture')));
+}
+
+function mobileRecords(records) {
+  return records.filter(({ widths }) => widths.includes(640) || widths.includes(720));
+}
+
+async function assertWithinBudget(record, width, budget) {
+  for (const extension of ['avif', 'webp']) {
+    const output = path.join(repositoryRoot, `${record.outputStem}-${width}w.${extension}`);
+    const bytes = (await stat(output)).size;
+    const exception = record.budgetException?.[`${width}w.${extension}`];
+    assert.ok(
+      bytes <= budget || (exception && exception.measuredBytes === bytes && exception.rationale),
+      `${output} exceeds its ${budget}-byte budget without a documented exception`
+    );
+  }
+}
+
 test('evidence provenance records are public-safe, complete, and approved', async () => {
   const records = await readProvenance();
 
@@ -72,23 +92,39 @@ test('all declared responsive variants exist after asset generation', async () =
   }
 });
 
-test('responsive aperture image budgets remain public-web appropriate', async () => {
+test('budget selectors include every declared aperture and mobile evidence category', async () => {
   const records = await readProvenance();
 
-  for (const record of records.filter(({ roles }) => roles.includes('aperture'))) {
+  assert.deepEqual(
+    largestApertureRecords(records).map(({ source }) => source).sort(),
+    [
+      'ppk076/ppk076_first_person_forklift.png',
+      'ppk076/ppk076_inventory_baseline_before_import.png',
+      'ppk076/ppk076_inventory_populated_after_import.png',
+      'generated/warehouse-optimization-verified-result.png',
+      'generated/skill-evaluation-lab-evidence-map.png',
+      'workspace/workspace_m2a_room_checkpoint.png',
+      'pythos/pythos_physical_evidence_terminal.jpg',
+      'generated/pythos-architecture-evidence-boundary.png'
+    ].sort()
+  );
+  assert.deepEqual(
+    mobileRecords(records).map(({ source }) => source).sort(),
+    approvedSources.filter((source) => !source.includes('pythos_public_evidence_map') && !source.includes('pythos_claim_boundary')).sort()
+  );
+});
+
+test('responsive evidence image budgets remain public-web appropriate', async () => {
+  const records = await readProvenance();
+
+  for (const record of largestApertureRecords(records)) {
     const largestWidth = Math.max(...record.widths);
-    const mobileWidth = Math.min(...record.widths);
-    for (const width of [largestWidth, mobileWidth]) {
-      for (const extension of ['avif', 'webp']) {
-        const output = path.join(repositoryRoot, `${record.outputStem}-${width}w.${extension}`);
-        const bytes = (await stat(output)).size;
-        const budget = width === largestWidth ? 450 * 1024 : 180 * 1024;
-        const exception = record.budgetException?.[`${width}w.${extension}`];
-        assert.ok(
-          bytes <= budget || (exception && exception.measuredBytes === bytes && exception.rationale),
-          `${output} exceeds its ${budget}-byte budget without a documented exception`
-        );
-      }
+    await assertWithinBudget(record, largestWidth, 450 * 1024);
+  }
+
+  for (const record of mobileRecords(records)) {
+    for (const width of record.widths.filter((width) => width === 640 || width === 720)) {
+      await assertWithinBudget(record, width, 180 * 1024);
     }
   }
 });
