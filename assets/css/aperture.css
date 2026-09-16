@@ -67,7 +67,7 @@
   object-position: center 54%;
 }
 
-.aperture-layer--before {
+img.aperture-layer--before {
   object-position: center;
   clip-path: inset(0);
   animation-name: aperture-ppk-before-cut;
@@ -75,7 +75,7 @@
   animation-timing-function: steps(1, end);
 }
 
-.aperture-layer--after {
+img.aperture-layer--after {
   object-position: center;
   clip-path: inset(0 100% 0 0);
   animation-name: aperture-ppk-after-cut;
@@ -241,8 +241,8 @@
   }
 
   .aperture-layer--forklift,
-  .aperture-layer--before,
-  .aperture-layer--after {
+  img.aperture-layer--before,
+  img.aperture-layer--after {
     object-position: 58% center;
     clip-path: none;
   }

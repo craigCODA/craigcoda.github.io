@@ -69,6 +69,15 @@ test('keeps mobile aperture vertical and native scrolling', async ({ page }, tes
   expect(box.width / box.height).toBeLessThan(0.92);
   expect(overflow).not.toBe('hidden');
   await enterAperture(page);
+  expect(await aperture.locator('.aperture-layer--before, .aperture-layer--after').evaluateAll((layers) => (
+    layers.map((layer) => {
+      const styles = getComputedStyle(layer);
+      return { animationName: styles.animationName, clipPath: styles.clipPath };
+    })
+  ))).toEqual([
+    { animationName: 'none', clipPath: 'none' },
+    { animationName: 'none', clipPath: 'none' }
+  ]);
 });
 
 test('uses six actual instant reduced-motion cuts with PythOS still parity', async ({ page }, testInfo) => {
@@ -128,6 +137,55 @@ test('hard swaps PythOS terminal evidence to its registered architecture artifac
   await page.waitForTimeout(2300);
   await expect(terminal).toHaveCSS('opacity', '0');
   await expect(architecture).toHaveCSS('opacity', '1');
+});
+
+test('runs and pauses the authored PPK matched-camera cut', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+  await page.goto('/');
+  await enterAperture(page);
+
+  const aperture = page.locator('[data-aperture]');
+  const forklift = page.locator('.aperture-layer--forklift');
+  const before = page.locator('.aperture-layer--before');
+  const after = page.locator('.aperture-layer--after');
+  await expect(aperture).toHaveAttribute('data-frame', '0');
+  await expect(aperture).toHaveAttribute('data-status', 'playing');
+  await expect(forklift).toHaveCSS('animation-name', 'aperture-image-drift');
+  await expect(before).toHaveCSS('animation-name', 'aperture-ppk-before-cut');
+  await expect(after).toHaveCSS('animation-name', 'aperture-ppk-after-cut');
+  await expect(before).toHaveCSS('animation-play-state', 'running');
+  await expect(after).toHaveCSS('animation-play-state', 'running');
+
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(aperture).toHaveAttribute('data-status', 'paused');
+  await expect(before).toHaveCSS('animation-play-state', 'paused');
+  await expect(after).toHaveCSS('animation-play-state', 'paused');
+  const pausedClips = await Promise.all([
+    before.evaluate((element) => getComputedStyle(element).clipPath),
+    after.evaluate((element) => getComputedStyle(element).clipPath)
+  ]);
+  await page.waitForTimeout(2200);
+  expect(await Promise.all([
+    before.evaluate((element) => getComputedStyle(element).clipPath),
+    after.evaluate((element) => getComputedStyle(element).clipPath)
+  ])).toEqual(pausedClips);
+
+  await enterAperture(page);
+  await expect(before).toHaveCSS('animation-play-state', 'running');
+  await expect(after).toHaveCSS('animation-play-state', 'running');
+  await expect.poll(() => before.evaluate((element) => getComputedStyle(element).clipPath), { timeout: 2500 }).not.toBe(pausedClips[0]);
+  const cutClips = await Promise.all([
+    before.evaluate((element) => getComputedStyle(element).clipPath),
+    after.evaluate((element) => getComputedStyle(element).clipPath)
+  ]);
+  expect(cutClips[0]).not.toBe(pausedClips[0]);
+  expect(cutClips[1]).not.toBe(pausedClips[1]);
+  expect(errors).toEqual([]);
 });
 
 test('keeps deferred evidence unloaded until the runtime activates its active and next frames', async ({ page }, testInfo) => {
