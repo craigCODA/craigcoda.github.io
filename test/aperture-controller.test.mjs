@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import { createApertureController } from '../assets/js/aperture-controller.js';
 
-const DURATIONS = [4000, 3500, 4000, 4000, 4500, 3000];
+const indexUrl = new URL('../index.html', import.meta.url);
+const expectedDurations = [4000, 3500, 4000, 4000, 4500, 3000];
+
+async function authoredDurations() {
+  const html = await readFile(indexUrl, 'utf8');
+  return [...html.matchAll(/<article\b[^>]*\bdata-aperture-frame\b[^>]*\bdata-duration="(\d+)"[^>]*>/g)].map((match) => Number(match[1]));
+}
 
 function createScheduler() {
   let time = 0;
@@ -36,11 +43,12 @@ function createScheduler() {
   };
 }
 
-test('runs the exact 23000ms authored vector once and completes without looping', () => {
+test('runs the parsed homepage 23000ms duration vector once and completes without looping', async () => {
   const scheduler = createScheduler();
   const frames = [];
+  const durations = await authoredDurations();
   const controller = createApertureController({
-    durations: DURATIONS,
+    durations,
     onFrame: (index) => frames.push(index),
     schedule: scheduler.schedule,
     cancel: scheduler.cancel,
@@ -49,11 +57,13 @@ test('runs the exact 23000ms authored vector once and completes without looping'
 
   assert.deepEqual(controller.state(), { index: 0, status: 'idle', playCount: 0 });
   controller.start();
-  scheduler.advance(23000);
+  scheduler.advance(durations.reduce((total, duration) => total + duration, 0));
   controller.start();
 
   assert.deepEqual(frames, [0, 1, 2, 3, 4, 5]);
-  assert.deepEqual(scheduler.delays, DURATIONS);
+  assert.deepEqual(durations, expectedDurations);
+  assert.equal(durations.reduce((total, duration) => total + duration, 0), 23000);
+  assert.deepEqual(scheduler.delays, durations);
   assert.deepEqual(controller.state(), { index: 5, status: 'complete', playCount: 1 });
 });
 

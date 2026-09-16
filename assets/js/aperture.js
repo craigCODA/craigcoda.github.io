@@ -16,7 +16,8 @@ if (aperture) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let enteredMeaningfulView = false;
   let inViewport = false;
-  let cleanedUp = false;
+  let reconciliationAttached = false;
+  let disposed = false;
 
   const syncMotion = () => {
     aperture.dataset.motion = reducedMotion.matches ? 'reduced' : 'full';
@@ -40,7 +41,7 @@ if (aperture) {
   const controller = createApertureController({
     durations: frames.map((frame) => Number(frame.dataset.duration)),
     onFrame: render,
-    onComplete: () => cleanup(),
+    onComplete: () => dispose(),
     onState: syncState,
     schedule: window.setTimeout.bind(window),
     cancel: window.clearTimeout.bind(window),
@@ -51,8 +52,6 @@ if (aperture) {
   aperture.dataset.frame = '0';
   aperture.dataset.status = 'idle';
   aperture.dataset.playCount = '0';
-  reducedMotion.addEventListener('change', syncMotion);
-
   const reconcile = () => {
     const { status } = controller.state();
     if (!enteredMeaningfulView || status === 'complete' || status === 'stopped') return;
@@ -76,18 +75,46 @@ if (aperture) {
     reconcile();
   }, { threshold: 0 });
   const onVisibilityChange = () => reconcile();
-  const cleanup = () => {
-    if (cleanedUp) return;
-    cleanedUp = true;
+  const detachReconciliation = () => {
+    if (!reconciliationAttached) return;
+    reconciliationAttached = false;
     entryObserver.disconnect();
     viewportObserver.disconnect();
     document.removeEventListener('visibilitychange', onVisibilityChange);
-    window.removeEventListener('pagehide', cleanup);
     reducedMotion.removeEventListener('change', syncMotion);
   };
+  const attachReconciliation = () => {
+    if (reconciliationAttached || disposed) return;
+    reconciliationAttached = true;
+    reducedMotion.addEventListener('change', syncMotion);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    entryObserver.observe(aperture);
+    viewportObserver.observe(aperture);
+  };
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    detachReconciliation();
+    window.removeEventListener('pagehide', onPageHide);
+    window.removeEventListener('pageshow', onPageShow);
+  };
+  const onPageHide = (event) => {
+    if (event.persisted) {
+      controller.pause();
+      detachReconciliation();
+      return;
+    }
+    controller.stop();
+    dispose();
+  };
+  const onPageShow = (event) => {
+    if (!event.persisted) return;
+    attachReconciliation();
+    syncMotion();
+    reconcile();
+  };
 
-  document.addEventListener('visibilitychange', onVisibilityChange);
-  window.addEventListener('pagehide', cleanup, { once: true });
-  entryObserver.observe(aperture);
-  viewportObserver.observe(aperture);
+  attachReconciliation();
+  window.addEventListener('pagehide', onPageHide);
+  window.addEventListener('pageshow', onPageShow);
 }

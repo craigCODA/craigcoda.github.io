@@ -40,6 +40,15 @@ test('uses the authored desktop aperture ratio', async ({ page }, testInfo) => {
   expect(box.width / box.height).toBeLessThan(2.35);
 });
 
+test('binds the runtime schedule to the six homepage frame durations', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  await page.goto('/');
+  const durations = await page.locator('[data-aperture-frame]').evaluateAll((frames) => frames.map((frame) => Number(frame.dataset.duration)));
+
+  expect(durations).toEqual([4000, 3500, 4000, 4000, 4500, 3000]);
+  expect(durations.reduce((total, duration) => total + duration, 0)).toBe(23000);
+});
+
 test('uses the authored tablet aperture ratio', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'tablet');
   await page.goto('/');
@@ -130,10 +139,88 @@ test('keeps deferred evidence unloaded until the runtime activates its active an
   await page.goto('/');
   expect(requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(false);
   expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
+  await page.locator('#work img').evaluateAll((images) => images.forEach((image) => image.remove()));
 
   await enterAperture(page);
   await expect.poll(() => requests.some((url) => url.includes('warehouse-optimization-verified-result')), { timeout: 1000 }).toBe(true);
+  expect(requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(false);
   expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
+  await page.waitForTimeout(4000);
+  await expect.poll(() => requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(true);
+  expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
+});
+
+test('restores a BFCache pagehide sequence after an ordinary visibility pause', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  await page.addInitScript(() => {
+    let hidden = false;
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    window.__setApertureHidden = (next) => {
+      hidden = next;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    window.__dispatchPageLifecycle = (type, persisted) => {
+      const event = new Event(type);
+      Object.defineProperty(event, 'persisted', { value: persisted });
+      window.dispatchEvent(event);
+    };
+  });
+  await page.goto('/');
+  const aperture = page.locator('[data-aperture]');
+  await enterAperture(page);
+  await page.evaluate(() => window.__setApertureHidden(true));
+  await expect(aperture).toHaveAttribute('data-status', 'paused');
+  await page.evaluate(() => window.__dispatchPageLifecycle('pagehide', true));
+  await page.evaluate(() => {
+    window.__setApertureHidden(false);
+    window.__dispatchPageLifecycle('pageshow', true);
+  });
+
+  await expect(aperture).toHaveAttribute('data-status', 'playing');
+  await expect(aperture).toHaveAttribute('data-play-count', '1');
+});
+
+test('stops a non-persisted pagehide and removes reconciliation hooks', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  await page.addInitScript(() => {
+    const NativeObserver = window.IntersectionObserver;
+    const nativeMatchMedia = window.matchMedia;
+    const remove = EventTarget.prototype.removeEventListener;
+    window.__pagehideCleanup = { disconnects: 0, removed: [], mediaRemoved: 0 };
+    window.IntersectionObserver = class extends NativeObserver {
+      disconnect() {
+        window.__pagehideCleanup.disconnects += 1;
+        return super.disconnect();
+      }
+    };
+    window.matchMedia = (...args) => {
+      const query = nativeMatchMedia(...args);
+      const removeListener = query.removeEventListener.bind(query);
+      query.removeEventListener = (type, listener, options) => {
+        if (type === 'change') window.__pagehideCleanup.mediaRemoved += 1;
+        return removeListener(type, listener, options);
+      };
+      return query;
+    };
+    EventTarget.prototype.removeEventListener = function(type, ...args) {
+      if (type === 'visibilitychange' || type === 'pagehide' || type === 'pageshow') window.__pagehideCleanup.removed.push(type);
+      return remove.call(this, type, ...args);
+    };
+    window.__dispatchPageLifecycle = (type, persisted) => {
+      const event = new Event(type);
+      Object.defineProperty(event, 'persisted', { value: persisted });
+      window.dispatchEvent(event);
+    };
+  });
+  await page.goto('/');
+  await enterAperture(page);
+  await page.evaluate(() => window.__dispatchPageLifecycle('pagehide', false));
+  await expect(page.locator('[data-aperture]')).toHaveAttribute('data-status', 'stopped');
+  const cleanup = await page.evaluate(() => window.__pagehideCleanup);
+
+  expect(cleanup.disconnects).toBe(2);
+  expect(cleanup.mediaRemoved).toBe(1);
+  expect(cleanup.removed).toEqual(expect.arrayContaining(['visibilitychange', 'pagehide', 'pageshow']));
 });
 
 test('cleans up observer and lifecycle listeners after completing the one-shot sequence', async ({ page }, testInfo) => {
