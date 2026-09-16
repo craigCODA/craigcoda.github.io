@@ -8,6 +8,7 @@ const tokensCssUrl = new URL('../assets/css/tokens.css', import.meta.url);
 const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
 const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
 const ppkUrl = new URL('../projects/ppk076/index.html', import.meta.url);
+const ppkCssUrl = new URL('../assets/css/projects/ppk076.css', import.meta.url);
 const expectedWorkModifiers = [
   'work-piece--ppk',
   'work-piece--warehouse',
@@ -38,6 +39,10 @@ function parseAttributes(tag) {
 function openingTags(markup, tagName) {
   return [...markup.matchAll(new RegExp(`<${tagName}\\b[^>]*>`, 'gi'))]
     .map((match) => ({ tag: match[0], attributes: parseAttributes(match[0]) }));
+}
+
+function pictures(markup) {
+  return [...markup.matchAll(/<picture\b[^>]*>([\s\S]*?)<\/picture>/gi)].map((match) => match[1]);
 }
 
 function linksByLabel(markup, label) {
@@ -221,6 +226,46 @@ function assertPpkEvidenceImage(attrs, provenance, { opening = false } = {}) {
   assert.equal(attrs.get('loading'), opening ? 'eager' : 'lazy', `${fallback.src} must use the correct evidence loading priority`);
 
   return fallback.stem;
+}
+
+function assertPpkSourceSet(attrs, provenance, expectedStem) {
+  const extension = attrs.get('type')?.match(/^image\/(avif|webp)$/i)?.[1]?.toLowerCase();
+  const srcset = attrs.get('srcset') ?? '';
+
+  assert.ok(extension, 'PPK preferred source must declare an AVIF or WebP type');
+  assert.ok(srcset, 'PPK preferred source must declare a srcset');
+
+  for (const candidate of srcset.split(',')) {
+    const match = candidate.trim().match(/^\/(assets\/evidence\/optimized\/.+)-(\d+)w\.(avif|webp)\s+(\d+)w$/i);
+
+    assert.ok(match, `${candidate.trim() || '<empty candidate>'} must be a responsive evidence candidate`);
+    const [, stem, fileWidth, fileExtension, descriptorWidth] = match;
+    const evidence = provenance.get(stem);
+
+    assert.equal(fileExtension.toLowerCase(), extension, `${candidate.trim()} must match its declared image type`);
+    assert.equal(Number(fileWidth), Number(descriptorWidth), `${candidate.trim()} must use a matching width descriptor`);
+    assert.equal(stem, expectedStem, `${candidate.trim()} must use the same evidence stem as its fallback image`);
+    assert.ok(evidence, `${candidate.trim()} must be registered PPK evidence`);
+    assert.equal(evidence.widths.includes(Number(fileWidth)), true, `${candidate.trim()} must use a declared responsive width`);
+  }
+}
+
+function assertPpkPictureEvidence(picture, provenance, { opening = false } = {}) {
+  const images = openingTags(picture, 'img');
+  const sources = openingTags(picture, 'source');
+
+  assert.equal(images.length, 1, 'each PPK picture must include one fallback image');
+  assert.equal(sources.length, 2, 'each PPK picture must include AVIF and WebP preferred sources');
+  const stem = assertPpkEvidenceImage(images[0].attributes, provenance, { opening });
+  assert.deepEqual(sources.map(({ attributes }) => attributes.get('type')).sort(), ['image/avif', 'image/webp']);
+  for (const { attributes } of sources) assertPpkSourceSet(attributes, provenance, stem);
+
+  return stem;
+}
+
+function assertPpkPublicLinks(markup) {
+  assertLink(markup, 'Source repository', 'https://github.com/craigCODA/ppk076', { safeExternal: true });
+  assertLink(markup, 'Live demo', 'https://craigcoda.github.io/ppk076/', { safeExternal: true });
 }
 
 function projectModifierTokens(attributes) {
@@ -493,7 +538,7 @@ test('every current text-link document loads its shared styles and marks its ret
   }));
 });
 
-test('PPK076 renders its ten registered PPK evidence records with their public metadata and confirmed links', async () => {
+test('PPK076 renders its ten registered PPK evidence records with traced preferred sources and safe public links', async () => {
   const [ppk, provenance] = await Promise.all([
     readFile(ppkUrl, 'utf8'),
     readFile(provenanceUrl, 'utf8').then(JSON.parse)
@@ -501,19 +546,43 @@ test('PPK076 renders its ten registered PPK evidence records with their public m
   const registeredPpkEvidence = new Map(provenance
     .filter((entry) => entry.project === 'ppk076')
     .map((entry) => [entry.outputStem, entry]));
-  const images = openingTags(ppk, 'img');
+  const ppkPictures = pictures(ppk);
 
-  assert.equal(images.length, 10);
+  assert.equal(ppkPictures.length, 10);
   assert.deepEqual(
-    images.map(({ attributes }, index) => assertPpkEvidenceImage(attributes, registeredPpkEvidence, { opening: index === 0 })).sort(),
+    ppkPictures.map((picture, index) => assertPpkPictureEvidence(picture, registeredPpkEvidence, { opening: index === 0 })).sort(),
     [...registeredPpkEvidence.keys()].sort()
   );
   assert.equal(
-    assertPpkEvidenceImage(images[0].attributes, registeredPpkEvidence, { opening: true }),
+    assertPpkPictureEvidence(ppkPictures[0], registeredPpkEvidence, { opening: true }),
     'assets/evidence/optimized/ppk076/ppk076_full_facility_oblique'
   );
-  assert.match(ppk, /href=["']https:\/\/github\.com\/craigCODA\/ppk076["']/i);
-  assert.match(ppk, /href=["']https:\/\/craigcoda\.github\.io\/ppk076\/["']/i);
+  assertPpkPublicLinks(ppk);
+
+  const unregisteredSource = ppk.replace(
+    'ppk076_full_facility_oblique-640w.avif',
+    'unregistered-640w.avif'
+  );
+  const unsafeSourceLink = ppk.replace('rel="noopener noreferrer"', 'rel="noopener"');
+
+  assert.throws(
+    () => assertPpkPictureEvidence(pictures(unregisteredSource)[0], registeredPpkEvidence, { opening: true }),
+    /must use the same evidence stem as its fallback image/
+  );
+  assert.throws(
+    () => assertPpkPublicLinks(unsafeSourceLink),
+    /Expected values to be strictly equal/
+  );
+});
+
+test('PPK076 opening evidence preserves its native ratio without a crop cap', async () => {
+  const rules = parseCssRules(await readFile(ppkCssUrl, 'utf8'));
+  const openingImage = effectiveExactDeclarations(rules, '.ppk-opening-evidence img');
+
+  assert.equal(openingImage.get('height'), 'auto');
+  assert.equal(openingImage.has('max-height'), false);
+  assert.equal(openingImage.has('min-height'), false);
+  assert.equal(openingImage.has('object-fit'), false);
 });
 
 test('narrow-screen styles give every current link control a 44-pixel touch target', async () => {

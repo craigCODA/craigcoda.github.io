@@ -9,8 +9,7 @@
 }
 
 .ppk-opening-evidence img {
-  max-height: min(72vh, 58rem);
-  object-fit: cover;
+  height: auto;
 }
 
 .ppk-opening-evidence figcaption {
@@ -108,10 +107,6 @@
 }
 
 @media (max-width: 42rem) {
-  .ppk-opening-evidence img {
-    min-height: 17rem;
-  }
-
   .ppk-problem-layout,
   .ppk-architecture-layout,
   .ppk-evidence-grid,
