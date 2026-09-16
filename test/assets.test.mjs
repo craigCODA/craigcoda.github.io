@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { access, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const evidenceRoot = path.join(repositoryRoot, 'assets', 'evidence');
 const provenancePath = path.join(evidenceRoot, 'provenance.json');
+const execFileAsync = promisify(execFile);
 
 const approvedSources = [
   'ppk076/ppk076_first_person_forklift.png',
@@ -90,6 +93,39 @@ test('warehouse route consumes only the declared public-safe result visual', asy
   assert.deepEqual(visual?.roles, ['aperture', 'warehouse hero', 'verified work']);
   assert.match(warehouse, /\/assets\/evidence\/optimized\/warehouse\/warehouse-optimization-verified-result-1800w\.webp/i);
   assert.doesNotMatch(warehouse, /\.svg\b|warehouse_wh1_bin_map_high_quality\.svg/i);
+});
+
+test('warehouse built output keeps the public boundary after an isolated build', async () => {
+  await execFileAsync(process.execPath, ['scripts/build.mjs'], { cwd: repositoryRoot });
+  const builtWarehouse = await readFile(path.join(repositoryRoot, 'dist', 'projects', 'warehouse-optimization', 'index.html'), 'utf8');
+  const prohibitedOperationalContent = /(?:\b222\b|\b26 bins\b|\bWH\d+\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg|raw\s+sap\s+(?:records?|data)|(?:facility|internal)\s+(?:label|bin|record|identifier)|(?:operator|employee|personnel)\s+(?:name|id)|(?:material number|inventory record)\s*[:|])/i;
+  const outputPaths = [...builtWarehouse.matchAll(/\/assets\/evidence\/optimized\/warehouse\/warehouse-optimization-verified-result-(?:720|1200|1800)w\.(?:avif|webp)/g)]
+    .map((match) => match[0])
+    .sort();
+  const expectedPaths = [
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-720w.avif',
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-720w.webp',
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1200w.avif',
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1200w.webp',
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1800w.avif',
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1800w.webp'
+  ].sort();
+
+  assert.doesNotMatch(builtWarehouse, prohibitedOperationalContent);
+  assert.deepEqual([...new Set(outputPaths)], expectedPaths);
+  assert.throws(
+    () => assert.doesNotMatch(`${builtWarehouse}\nJ01`, prohibitedOperationalContent),
+    /J01/
+  );
+  assert.throws(
+    () => assert.deepEqual(
+      [...new Set([...builtWarehouse.replaceAll('1800w.webp', '1600w.webp').matchAll(/\/assets\/evidence\/optimized\/warehouse\/warehouse-optimization-verified-result-(?:720|1200|1800)w\.(?:avif|webp)/g)]
+        .map((match) => match[0])
+        .sort())],
+      expectedPaths
+    ),
+    /strictly deep-equal/
+  );
 });
 
 test('all declared responsive variants exist after asset generation', async () => {

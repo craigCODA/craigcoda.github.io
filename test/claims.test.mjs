@@ -112,6 +112,53 @@ test('warehouse optimization publishes its verified result without exposing oper
   );
 });
 
+test('warehouse route keeps its complete decision boundary and generic technology disclosure', async () => {
+  const warehouse = await readFile(new URL('../projects/warehouse-optimization/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(warehouse);
+  const expectedHeadings = [
+    'Problem',
+    'What I built',
+    'Architecture / decisions',
+    'Evidence',
+    'Result',
+    'Technologies',
+    'Current boundary / unfinished work',
+    'Source / demo / verification'
+  ];
+  const headings = [...warehouse.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  const technologies = warehouse.match(/<section\b[^>]*\bwarehouse-technologies\b[^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
+  const technologyItems = [...technologies.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  const prohibitedOperationalContent = /(?:\b222\b|\b26 bins\b|\bWH\d+\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg|raw\s+sap\s+(?:records?|data)|(?:facility|internal)\s+(?:label|bin|record|identifier)|(?:operator|employee|personnel)\s+(?:name|id)|(?:material number|inventory record)\s*[:|])/i;
+
+  assert.deepEqual(headings, expectedHeadings);
+  assert.deepEqual(technologyItems, ['Deterministic rules', 'Data transformation', 'Verification workflow']);
+  assert.doesNotMatch(technologies, /(?:Three\.js|JavaScript|TypeScript|Python|SQL|Node|React|SAP)/i);
+  assert.match(visibleText, /No raw operational dataset is published/i);
+  assert.match(visibleText, /one verified run and is not combined with a separate historical analysis/i);
+  assert.match(visibleText, /REWORK-verified/i);
+  assert.equal((warehouse.match(/<a\b[^>]*\bhref=["']https?:\/\//gi) ?? []).length, 0, 'warehouse route must not invent external credential anchors');
+  assert.doesNotMatch(warehouse, prohibitedOperationalContent);
+
+  assert.throws(
+    () => assert.deepEqual(
+      [...warehouse.replace('Architecture / decisions', 'Architecture').matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+        .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()),
+      expectedHeadings
+    ),
+    /strictly deep-equal/
+  );
+  assert.throws(
+    () => assert.match(warehouse.replace('REWORK-verified', 'verified'), /REWORK-verified/i),
+    /REWORK-verified/
+  );
+  assert.throws(
+    () => assert.doesNotMatch(`${warehouse}\nWH1`, prohibitedOperationalContent),
+    /WH1/
+  );
+});
+
 test('homepage publishes only the approved evidence-led claims', async () => {
   const home = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const publicHtml = await Promise.all(publicDocuments.map((document) => readFile(new URL(document, import.meta.url), 'utf8')));

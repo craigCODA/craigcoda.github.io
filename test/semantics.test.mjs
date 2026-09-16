@@ -213,11 +213,11 @@ function assertEvidenceImage(attrs, provenance) {
   return fallback.stem;
 }
 
-function assertPpkEvidenceImage(attrs, provenance, { opening = false } = {}) {
+function assertResponsiveEvidenceImage(attrs, provenance, { opening = false } = {}) {
   const fallback = responsiveFallback(attrs);
   const evidence = provenance.get(fallback.stem);
 
-  assert.ok(evidence, `${fallback.stem} must be registered PPK evidence`);
+  assert.ok(evidence, `${fallback.stem} must be registered responsive evidence`);
   assert.equal(attrs.get('alt'), evidence.alt, `${fallback.src} must use the registered alt text`);
   assert.equal(attrs.get('width'), String(evidence.sourceWidth), `${fallback.src} must declare its source width`);
   assert.equal(attrs.get('height'), String(evidence.sourceHeight), `${fallback.src} must declare its source height`);
@@ -228,16 +228,16 @@ function assertPpkEvidenceImage(attrs, provenance, { opening = false } = {}) {
   return fallback.stem;
 }
 
-function assertPpkSourceSet(attrs, provenance, expectedStem) {
+function assertResponsiveSourceSet(attrs, provenance, expectedStem) {
   const extension = attrs.get('type')?.match(/^image\/(avif|webp)$/i)?.[1]?.toLowerCase();
   const srcset = attrs.get('srcset') ?? '';
   const sizes = attrs.get('sizes') ?? '';
   const evidence = provenance.get(expectedStem);
 
-  assert.ok(extension, 'PPK preferred source must declare an AVIF or WebP type');
-  assert.ok(srcset, 'PPK preferred source must declare a srcset');
-  assert.ok(sizes, 'PPK preferred source must declare sizes');
-  assert.ok(evidence, `${expectedStem} must be registered PPK evidence`);
+  assert.ok(extension, 'preferred source must declare an AVIF or WebP type');
+  assert.ok(srcset, 'preferred source must declare a srcset');
+  assert.ok(sizes, 'preferred source must declare sizes');
+  assert.ok(evidence, `${expectedStem} must be registered responsive evidence`);
 
   const candidates = [];
 
@@ -267,23 +267,23 @@ function assertPpkSourceSet(attrs, provenance, expectedStem) {
   return candidates;
 }
 
-function assertPpkPictureEvidence(picture, provenance, { opening = false } = {}) {
+function assertResponsivePictureEvidence(picture, provenance, { opening = false } = {}) {
   const images = openingTags(picture, 'img');
   const sources = openingTags(picture, 'source');
 
-  assert.equal(images.length, 1, 'each PPK picture must include one fallback image');
-  assert.equal(sources.length, 2, 'each PPK picture must include AVIF and WebP preferred sources');
-  const stem = assertPpkEvidenceImage(images[0].attributes, provenance, { opening });
+  assert.equal(images.length, 1, 'each responsive picture must include one fallback image');
+  assert.equal(sources.length, 2, 'each responsive picture must include AVIF and WebP preferred sources');
+  const stem = assertResponsiveEvidenceImage(images[0].attributes, provenance, { opening });
   const fallback = responsiveFallback(images[0].attributes);
   const evidence = provenance.get(stem);
   assert.deepEqual(sources.map(({ attributes }) => attributes.get('type')).sort(), ['image/avif', 'image/webp']);
   assert.equal(fallback.width, Math.max(...evidence.widths), `${fallback.src} must use the largest registered fallback`);
-  const candidates = sources.flatMap(({ attributes }) => assertPpkSourceSet(attributes, provenance, stem));
+  const candidates = sources.flatMap(({ attributes }) => assertResponsiveSourceSet(attributes, provenance, stem));
 
   return { stem, candidates };
 }
 
-async function assertPpkCandidateFiles(candidates) {
+async function assertResponsiveCandidateFiles(candidates) {
   await Promise.all(candidates.map(({ path }) => access(new URL(`..${path}`, import.meta.url))));
 }
 
@@ -573,7 +573,7 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
   const ppkPictures = pictures(ppk);
 
   assert.equal(ppkPictures.length, 10);
-  const pictureEvidence = ppkPictures.map((picture, index) => assertPpkPictureEvidence(picture, registeredPpkEvidence, { opening: index === 0 }));
+  const pictureEvidence = ppkPictures.map((picture, index) => assertResponsivePictureEvidence(picture, registeredPpkEvidence, { opening: index === 0 }));
 
   assert.deepEqual(
     pictureEvidence.map(({ stem }) => stem).sort(),
@@ -583,7 +583,7 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
     pictureEvidence[0].stem,
     'assets/evidence/optimized/ppk076/ppk076_full_facility_oblique'
   );
-  await assertPpkCandidateFiles(pictureEvidence.flatMap(({ candidates }) => candidates));
+  await assertResponsiveCandidateFiles(pictureEvidence.flatMap(({ candidates }) => candidates));
   assertPpkPublicLinks(ppk);
 
   const unregisteredSource = ppk.replace(
@@ -600,7 +600,7 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
   );
 
   assert.throws(
-    () => assertPpkPictureEvidence(pictures(unregisteredSource)[0], registeredPpkEvidence, { opening: true }),
+    () => assertResponsivePictureEvidence(pictures(unregisteredSource)[0], registeredPpkEvidence, { opening: true }),
     /must use the same evidence stem as its fallback image/
   );
   assert.throws(
@@ -608,23 +608,23 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
     /Expected values to be strictly equal/
   );
   assert.throws(
-    () => assertPpkPictureEvidence(pictures(missingSizes)[0], registeredPpkEvidence, { opening: true }),
+    () => assertResponsivePictureEvidence(pictures(missingSizes)[0], registeredPpkEvidence, { opening: true }),
     /must declare sizes/
   );
   assert.throws(
-    () => assertPpkPictureEvidence(pictures(smallerOpeningFallback)[0], registeredPpkEvidence, { opening: true }),
+    () => assertResponsivePictureEvidence(pictures(smallerOpeningFallback)[0], registeredPpkEvidence, { opening: true }),
     /must use the largest registered fallback/
   );
   assert.throws(
-    () => assertPpkPictureEvidence(pictures(missingAvifCandidate)[0], registeredPpkEvidence, { opening: true }),
+    () => assertResponsivePictureEvidence(pictures(missingAvifCandidate)[0], registeredPpkEvidence, { opening: true }),
     /candidates must match every registered responsive width/
   );
   assert.throws(
-    () => assertPpkPictureEvidence(pictures(missingWebpCandidate)[0], registeredPpkEvidence, { opening: true }),
+    () => assertResponsivePictureEvidence(pictures(missingWebpCandidate)[0], registeredPpkEvidence, { opening: true }),
     /candidates must match every registered responsive width/
   );
   await assert.rejects(
-    assertPpkCandidateFiles([{ path: '/assets/evidence/optimized/ppk076/missing-640w.avif' }]),
+    assertResponsiveCandidateFiles([{ path: '/assets/evidence/optimized/ppk076/missing-640w.avif' }]),
     /ENOENT/
   );
 });
@@ -781,6 +781,46 @@ test('warehouse route provides the shared case-study sections and its public-saf
   assert.equal(
     assertEvidenceImage(images[0].attributes, registeredEvidence),
     'assets/evidence/optimized/warehouse/warehouse-optimization-verified-result'
+  );
+
+  const warehousePictures = pictures(warehouse);
+  assert.equal(warehousePictures.length, 1, 'warehouse route must use one responsive result picture');
+  const pictureEvidence = assertResponsivePictureEvidence(warehousePictures[0], registeredEvidence);
+  assert.equal(pictureEvidence.stem, 'assets/evidence/optimized/warehouse/warehouse-optimization-verified-result');
+  await assertResponsiveCandidateFiles(pictureEvidence.candidates);
+
+  const unregisteredSource = warehouse.replace(
+    'warehouse-optimization-verified-result-720w.avif',
+    'warehouse-optimization-unregistered-720w.avif'
+  );
+  const missingAvifCandidate = warehouse.replace(
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1200w.avif 1200w, ',
+    ''
+  );
+  const missingWebpCandidate = warehouse.replace(
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1200w.webp 1200w, ',
+    ''
+  );
+  const smallerFallback = warehouse.replace(
+    'warehouse-optimization-verified-result-1800w.webp" alt=',
+    'warehouse-optimization-verified-result-1200w.webp" alt='
+  );
+
+  assert.throws(
+    () => assertResponsivePictureEvidence(pictures(unregisteredSource)[0], registeredEvidence),
+    /must use the same evidence stem as its fallback image/
+  );
+  assert.throws(
+    () => assertResponsivePictureEvidence(pictures(missingAvifCandidate)[0], registeredEvidence),
+    /candidates must match every registered responsive width/
+  );
+  assert.throws(
+    () => assertResponsivePictureEvidence(pictures(missingWebpCandidate)[0], registeredEvidence),
+    /candidates must match every registered responsive width/
+  );
+  assert.throws(
+    () => assertResponsivePictureEvidence(pictures(smallerFallback)[0], registeredEvidence),
+    /must use the largest registered fallback/
   );
 });
 
