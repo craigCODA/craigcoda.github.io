@@ -28,11 +28,11 @@ if (aperture) {
       frame.hidden = !active;
       frame.setAttribute('aria-hidden', String(!active));
     });
-    hydrateFrame(frames[index]);
-    if (frames[index + 1]) hydrateFrame(frames[index + 1]);
     aperture.dataset.frame = String(index);
     aperture.dataset.status = state.status;
     aperture.dataset.playCount = String(state.playCount);
+    hydrateFrame(frames[index]);
+    if (frames[index + 1]) hydrateFrame(frames[index + 1]);
   };
   const syncState = (state) => {
     aperture.dataset.status = state.status;

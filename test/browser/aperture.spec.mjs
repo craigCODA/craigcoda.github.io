@@ -136,17 +136,46 @@ test('keeps deferred evidence unloaded until the runtime activates its active an
   page.on('request', (request) => {
     if (request.resourceType() === 'image') requests.push(request.url());
   });
+  await page.addInitScript(() => {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    window.__deferredPromotions = [];
+    Object.defineProperty(HTMLImageElement.prototype, 'src', {
+      ...descriptor,
+      set(value) {
+        if (String(value).includes('skill-evaluation-lab-evidence-map')) {
+          window.__deferredPromotions.push({
+            frame: this.closest('[data-aperture]')?.dataset.frame ?? null,
+            url: String(value)
+          });
+        }
+        descriptor.set.call(this, value);
+      }
+    });
+  });
+  await page.clock.install();
   await page.goto('/');
+  await page.clock.pauseAt(new Date(Date.now() + 60_000));
   expect(requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(false);
   expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
   await page.locator('#work img').evaluateAll((images) => images.forEach((image) => image.remove()));
 
+  const aperture = page.locator('[data-aperture]');
   await enterAperture(page);
   await expect.poll(() => requests.some((url) => url.includes('warehouse-optimization-verified-result')), { timeout: 1000 }).toBe(true);
+  await expect(aperture).toHaveAttribute('data-frame', '0');
   expect(requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(false);
   expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
-  await page.waitForTimeout(4000);
+  expect(await page.evaluate(() => window.__deferredPromotions)).toEqual([]);
+
+  await page.clock.fastForward(3999);
+  await expect(aperture).toHaveAttribute('data-frame', '0');
+  expect(requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(false);
+  expect(await page.evaluate(() => window.__deferredPromotions)).toEqual([]);
+
+  await page.clock.fastForward(1);
+  await expect(aperture).toHaveAttribute('data-frame', '1');
   await expect.poll(() => requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(true);
+  expect(await page.evaluate(() => window.__deferredPromotions.map(({ frame }) => frame))).toEqual(['1']);
   expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
 });
 
