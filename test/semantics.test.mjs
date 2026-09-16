@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 
 const indexUrl = new URL('../index.html', import.meta.url);
 const baseCssUrl = new URL('../assets/css/base.css', import.meta.url);
@@ -11,6 +12,18 @@ const ppkUrl = new URL('../projects/ppk076/index.html', import.meta.url);
 const ppkCssUrl = new URL('../assets/css/projects/ppk076.css', import.meta.url);
 const warehouseCssUrl = new URL('../assets/css/projects/warehouse.css', import.meta.url);
 const skillLabCssUrl = new URL('../assets/css/projects/skill-lab.css', import.meta.url);
+const skillLabUrl = new URL('../projects/skill-evaluation-lab/index.html', import.meta.url);
+const builtSkillLabUrl = new URL('../dist/projects/skill-evaluation-lab/index.html', import.meta.url);
+const sharedCaseStudyHeadings = [
+  'Problem',
+  'What I built',
+  'Architecture / decisions',
+  'Evidence',
+  'Result',
+  'Technologies',
+  'Current boundary / unfinished work',
+  'Source / demo / verification'
+];
 const expectedWorkModifiers = [
   'work-piece--ppk',
   'work-piece--warehouse',
@@ -292,6 +305,54 @@ async function assertResponsiveCandidateFiles(candidates) {
 function assertPpkPublicLinks(markup) {
   assertLink(markup, 'Source repository', 'https://github.com/craigCODA/ppk076', { safeExternal: true });
   assertLink(markup, 'Live demo', 'https://craigcoda.github.io/ppk076/', { safeExternal: true });
+}
+
+function visibleText(markup) {
+  return markup
+    .replace(/<head\b[\s\S]*?<\/head>/gi, '')
+    .replace(/<(?:script|style|template)\b[\s\S]*?<\/(?:script|style|template)>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(?:amp|nbsp);/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function readBuiltOutputAfterBuild(url) {
+  let lastError;
+
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    try {
+      return await readFile(url, 'utf8');
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      lastError = error;
+      await delay(25);
+    }
+  }
+
+  throw lastError;
+}
+
+function assertSkillLabDocumentContract(markup, provenance) {
+  const headings = [...markup.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  const boundary = markup.match(/<section\b[^>]*\bskill-lab-boundary\b[^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
+  const boundaryText = visibleText(boundary);
+
+  assert.deepEqual(headings, sharedCaseStudyHeadings);
+  assert.match(markup, /<link rel=["']stylesheet["'] href=["']\/assets\/css\/projects\/skill-lab\.css["']>/i);
+  assertLink(markup, 'Source repository', 'https://github.com/craigCODA/Skill-Evaluation-Lab', { safeExternal: true });
+  assertLink(markup, 'Evidence release: evidence-0001-0015', 'https://github.com/craigCODA/Skill-Evaluation-Lab/releases/tag/evidence-0001-0015', { safeExternal: true });
+  assert.match(boundaryText, /0031 block is a captured saved record/i);
+  assert.match(boundaryText, /public evidence release records runs 0001–0015/i);
+  assert.match(boundaryText, /not live or current repository status for the public repository/i);
+
+  const skillPictures = pictures(markup);
+  assert.equal(skillPictures.length, 1, 'Skill Evaluation Lab must use one responsive evidence map');
+  const pictureEvidence = assertResponsivePictureEvidence(skillPictures[0], provenance);
+  assert.equal(pictureEvidence.stem, 'assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map');
+
+  return pictureEvidence.candidates;
 }
 
 function projectModifierTokens(attributes) {
@@ -838,36 +899,30 @@ test('warehouse route provides the shared case-study sections and its public-saf
   );
 });
 
-test('Skill Evaluation Lab preserves an evidence chain, saved-record disclosure, and responsive evidence', async () => {
-  const [skillLab, skillLabCss, provenance] = await Promise.all([
-    readFile(new URL('../projects/skill-evaluation-lab/index.html', import.meta.url), 'utf8'),
+test('Skill Evaluation Lab authored and built routes preserve ordered evidence-record contracts', async () => {
+  const [skillLab, builtSkillLab, skillLabCss, provenance] = await Promise.all([
+    readFile(skillLabUrl, 'utf8'),
+    readBuiltOutputAfterBuild(builtSkillLabUrl),
     readFile(skillLabCssUrl, 'utf8'),
     readFile(provenanceUrl, 'utf8').then(JSON.parse)
   ]);
   const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
-  const expectedHeadings = [
-    'Problem',
-    'What I built',
-    'Architecture / decisions',
-    'Evidence',
-    'Result',
-    'Technologies',
-    'Current boundary / unfinished work',
-    'Source / demo / verification'
-  ];
+  const sourceCandidates = assertSkillLabDocumentContract(skillLab, registeredEvidence);
+  const builtCandidates = assertSkillLabDocumentContract(builtSkillLab, registeredEvidence);
+  await assertResponsiveCandidateFiles([...sourceCandidates, ...builtCandidates]);
 
-  assert.match(skillLab, /<link rel=["']stylesheet["'] href=["']\/assets\/css\/projects\/skill-lab\.css["']>/i);
-  for (const heading of expectedHeadings) {
-    assert.match(skillLab, new RegExp(`<h2\\b[^>]*>\\s*${heading}\\s*<\\/h2>`, 'i'));
-  }
-  assertLink(skillLab, 'Source repository', 'https://github.com/craigCODA/Skill-Evaluation-Lab', { safeExternal: true });
-  assertLink(skillLab, 'Evidence release: evidence-0001-0015', 'https://github.com/craigCODA/Skill-Evaluation-Lab/releases/tag/evidence-0001-0015', { safeExternal: true });
-
-  const skillPictures = pictures(skillLab);
-  assert.equal(skillPictures.length, 1, 'Skill Evaluation Lab must use one responsive evidence map');
-  const pictureEvidence = assertResponsivePictureEvidence(skillPictures[0], registeredEvidence);
-  assert.equal(pictureEvidence.stem, 'assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map');
-  await assertResponsiveCandidateFiles(pictureEvidence.candidates);
+  const reorderedHeadings = skillLab
+    .replace('<h2 id="problem-title">Problem</h2>', '<h2 id="problem-title">What I built</h2>')
+    .replace('<h2 id="built-title">What I built</h2>', '<h2 id="built-title">Problem</h2>');
+  const missingSavedRecordBoundary = skillLab.replaceAll('not live or current repository status for the public repository', 'current repository status');
+  assert.throws(
+    () => assertSkillLabDocumentContract(reorderedHeadings, registeredEvidence),
+    /strictly deep-equal/
+  );
+  assert.throws(
+    () => assertSkillLabDocumentContract(missingSavedRecordBoundary, registeredEvidence),
+    /not live or current repository status for the public repository/
+  );
 
   const rules = parseCssRules(skillLabCss);
   const desktopChain = effectiveExactDeclarations(rules.filter((rule) => rule.atRules.length === 0), '.skill-evidence-chain');

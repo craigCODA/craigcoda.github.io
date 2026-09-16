@@ -141,13 +141,15 @@
   padding-top: clamp(2rem, 5vw, 5rem);
 }
 
-@media (max-width: 42rem) {
+@media (max-width: 52rem) {
   .skill-lab-architecture,
   .skill-lab-evidence,
   .skill-lab-result-layout {
     grid-template-columns: 1fr;
   }
+}
 
+@media (max-width: 42rem) {
   .skill-evidence-chain {
     grid-template-columns: 1fr;
   }
