@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const indexUrl = new URL('../index.html', import.meta.url);
@@ -231,23 +231,40 @@ function assertPpkEvidenceImage(attrs, provenance, { opening = false } = {}) {
 function assertPpkSourceSet(attrs, provenance, expectedStem) {
   const extension = attrs.get('type')?.match(/^image\/(avif|webp)$/i)?.[1]?.toLowerCase();
   const srcset = attrs.get('srcset') ?? '';
+  const sizes = attrs.get('sizes') ?? '';
+  const evidence = provenance.get(expectedStem);
 
   assert.ok(extension, 'PPK preferred source must declare an AVIF or WebP type');
   assert.ok(srcset, 'PPK preferred source must declare a srcset');
+  assert.ok(sizes, 'PPK preferred source must declare sizes');
+  assert.ok(evidence, `${expectedStem} must be registered PPK evidence`);
+
+  const candidates = [];
 
   for (const candidate of srcset.split(',')) {
     const match = candidate.trim().match(/^\/(assets\/evidence\/optimized\/.+)-(\d+)w\.(avif|webp)\s+(\d+)w$/i);
 
     assert.ok(match, `${candidate.trim() || '<empty candidate>'} must be a responsive evidence candidate`);
     const [, stem, fileWidth, fileExtension, descriptorWidth] = match;
-    const evidence = provenance.get(stem);
 
     assert.equal(fileExtension.toLowerCase(), extension, `${candidate.trim()} must match its declared image type`);
     assert.equal(Number(fileWidth), Number(descriptorWidth), `${candidate.trim()} must use a matching width descriptor`);
     assert.equal(stem, expectedStem, `${candidate.trim()} must use the same evidence stem as its fallback image`);
-    assert.ok(evidence, `${candidate.trim()} must be registered PPK evidence`);
-    assert.equal(evidence.widths.includes(Number(fileWidth)), true, `${candidate.trim()} must use a declared responsive width`);
+    assert.equal(
+      candidate.trim(),
+      `/${expectedStem}-${fileWidth}w.${extension} ${descriptorWidth}w`,
+      `${candidate.trim()} must use the exact registered responsive path`
+    );
+    candidates.push({ path: `/${expectedStem}-${fileWidth}w.${extension}`, width: Number(fileWidth) });
   }
+
+  assert.deepEqual(
+    candidates.map(({ width }) => width).sort((left, right) => left - right),
+    evidence.widths.slice().sort((left, right) => left - right),
+    `${expectedStem} ${extension} candidates must match every registered responsive width`
+  );
+
+  return candidates;
 }
 
 function assertPpkPictureEvidence(picture, provenance, { opening = false } = {}) {
@@ -257,10 +274,17 @@ function assertPpkPictureEvidence(picture, provenance, { opening = false } = {})
   assert.equal(images.length, 1, 'each PPK picture must include one fallback image');
   assert.equal(sources.length, 2, 'each PPK picture must include AVIF and WebP preferred sources');
   const stem = assertPpkEvidenceImage(images[0].attributes, provenance, { opening });
+  const fallback = responsiveFallback(images[0].attributes);
+  const evidence = provenance.get(stem);
   assert.deepEqual(sources.map(({ attributes }) => attributes.get('type')).sort(), ['image/avif', 'image/webp']);
-  for (const { attributes } of sources) assertPpkSourceSet(attributes, provenance, stem);
+  assert.equal(fallback.width, Math.max(...evidence.widths), `${fallback.src} must use the largest registered fallback`);
+  const candidates = sources.flatMap(({ attributes }) => assertPpkSourceSet(attributes, provenance, stem));
 
-  return stem;
+  return { stem, candidates };
+}
+
+async function assertPpkCandidateFiles(candidates) {
+  await Promise.all(candidates.map(({ path }) => access(new URL(`..${path}`, import.meta.url))));
 }
 
 function assertPpkPublicLinks(markup) {
@@ -549,14 +573,17 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
   const ppkPictures = pictures(ppk);
 
   assert.equal(ppkPictures.length, 10);
+  const pictureEvidence = ppkPictures.map((picture, index) => assertPpkPictureEvidence(picture, registeredPpkEvidence, { opening: index === 0 }));
+
   assert.deepEqual(
-    ppkPictures.map((picture, index) => assertPpkPictureEvidence(picture, registeredPpkEvidence, { opening: index === 0 })).sort(),
+    pictureEvidence.map(({ stem }) => stem).sort(),
     [...registeredPpkEvidence.keys()].sort()
   );
   assert.equal(
-    assertPpkPictureEvidence(ppkPictures[0], registeredPpkEvidence, { opening: true }),
+    pictureEvidence[0].stem,
     'assets/evidence/optimized/ppk076/ppk076_full_facility_oblique'
   );
+  await assertPpkCandidateFiles(pictureEvidence.flatMap(({ candidates }) => candidates));
   assertPpkPublicLinks(ppk);
 
   const unregisteredSource = ppk.replace(
@@ -564,6 +591,11 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
     'unregistered-640w.avif'
   );
   const unsafeSourceLink = ppk.replace('rel="noopener noreferrer"', 'rel="noopener"');
+  const missingSizes = ppk.replace('sizes="100vw"', '');
+  const smallerOpeningFallback = ppk.replace(
+    'ppk076_full_facility_oblique-1759w.webp" alt=',
+    'ppk076_full_facility_oblique-640w.webp" alt='
+  );
 
   assert.throws(
     () => assertPpkPictureEvidence(pictures(unregisteredSource)[0], registeredPpkEvidence, { opening: true }),
@@ -572,6 +604,18 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
   assert.throws(
     () => assertPpkPublicLinks(unsafeSourceLink),
     /Expected values to be strictly equal/
+  );
+  assert.throws(
+    () => assertPpkPictureEvidence(pictures(missingSizes)[0], registeredPpkEvidence, { opening: true }),
+    /must declare sizes/
+  );
+  assert.throws(
+    () => assertPpkPictureEvidence(pictures(smallerOpeningFallback)[0], registeredPpkEvidence, { opening: true }),
+    /must use the largest registered fallback/
+  );
+  await assert.rejects(
+    assertPpkCandidateFiles([{ path: '/assets/evidence/optimized/ppk076/missing-640w.avif' }]),
+    /ENOENT/
   );
 });
 
@@ -583,6 +627,22 @@ test('PPK076 opening evidence preserves its native ratio without a crop cap', as
   assert.equal(openingImage.has('max-height'), false);
   assert.equal(openingImage.has('min-height'), false);
   assert.equal(openingImage.has('object-fit'), false);
+});
+
+test('PPK076 matched comparison frames share one aspect and presentation contract', async () => {
+  const rules = parseCssRules(await readFile(ppkCssUrl, 'utf8'));
+  const frameRules = rules.filter((rule) => rule.selectors.includes('.ppk-matched-pair .evidence-figure'));
+  const imageRules = rules.filter((rule) => rule.selectors.includes('.ppk-matched-pair img'));
+  const frame = effectiveExactDeclarations(rules, '.ppk-matched-pair .evidence-figure');
+  const image = effectiveExactDeclarations(rules, '.ppk-matched-pair img');
+
+  assert.equal(frameRules.length, 1, 'comparison frames must use one shared rule');
+  assert.equal(imageRules.length, 1, 'comparison images must use one shared rule');
+  assert.equal(frame.get('aspect-ratio'), '16 / 9');
+  assert.equal(image.get('width'), '100%');
+  assert.equal(image.get('height'), '100%');
+  assert.equal(image.get('object-fit'), 'cover');
+  assert.equal(image.get('object-position'), '50% 50%');
 });
 
 test('narrow-screen styles give every current link control a 44-pixel touch target', async () => {

@@ -12,16 +12,57 @@ const publicDocuments = [
   '../projects/pythos/index.html'
 ];
 
+function ppkVisibleText(markup) {
+  return markup
+    .replace(/<head\b[\s\S]*?<\/head>/gi, '')
+    .replace(/<(?:script|style|template)\b[\s\S]*?<\/(?:script|style|template)>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(?:amp|nbsp);/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function assertNoPpkVisibleMetrics(text) {
+  const metrics = [...text.matchAll(/(?<![\p{L}\p{N}])(176|22|222|26)(?![\p{L}\p{N}])/gu)].map((match) => match[1]);
+
+  assert.deepEqual(metrics, [], `PPK visible text must not publish warehouse metrics: ${metrics.join(', ')}`);
+}
+
 test('PPK076 describes the supported local boundary without exposing inventory records or warehouse-optimization results', async () => {
   const ppk = await readFile(new URL('../projects/ppk076/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(ppk);
 
-  assert.match(ppk, /manual export/i);
-  assert.match(ppk, /local parsing/i);
-  assert.match(ppk, /no SAP return path/i);
-  assert.doesNotMatch(ppk, /176 pallet positions recovered/i);
-  assert.doesNotMatch(ppk, /22 storage bins freed/i);
-  assert.doesNotMatch(ppk, /<table\b/i);
-  assert.doesNotMatch(ppk, /(?:material number|storage bin|inventory record)\s*[:|]/i);
+  for (const content of [
+    /physical layout, storage, movement, and training/i,
+    /disconnected records/i,
+    /offline-capable browser-based Three\.js warehouse simulation/i,
+    /walking and forklift interaction/i,
+    /camera modes/i,
+    /PWA support/i,
+    /WebXR-compatible browser direction/i,
+    /Electron packaging/i,
+    /manual export/i,
+    /local parsing/i,
+    /no SAP return path/i,
+    /top-down inset/i,
+    /rack positions and floor-bin areas/i,
+    /operational relationship/i,
+    /inspectable/i,
+    /Three\.js/i,
+    /PWA and service worker/i,
+    /Node build scripts/i,
+    /simulation and decision\/training aid/i,
+    /optional movement capture/i,
+    /public verification surfaces/i
+  ]) assert.match(visibleText, content);
+
+  assertNoPpkVisibleMetrics(visibleText);
+  assert.doesNotMatch(visibleText, /(?:material number|storage bin|inventory record)\s*[:|]/i);
+
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 176 positions`), /176/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 176/22 bins and 222 positions / 26 bins`), /176, 22, 222, 26/);
+  assert.doesNotThrow(() => assertNoPpkVisibleMetrics(`${visibleText} CRC176F4C6E zone22alpha`));
+  assert.doesNotThrow(() => assertNoPpkVisibleMetrics(ppkVisibleText(`${ppk}<script>const metric = 176;</script>`)));
 });
 
 test('homepage publishes only the approved evidence-led claims', async () => {
