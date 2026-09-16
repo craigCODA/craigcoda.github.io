@@ -154,9 +154,12 @@ function assertNoAlternateSkipLinkTransforms(rules) {
 
 test('homepage exposes one accessible publication shell', async () => {
   const html = await readFile(indexUrl, 'utf8');
+  const skipLinks = openingTags(html, 'a')
+    .filter(({ attributes }) => attributes.get('href') === '#main-content')
+    .filter(({ attributes }) => attributeTokens(attributes, 'class').has('skip-link'));
 
   assert.equal((html.match(/<main\b/gi) ?? []).length, 1);
-  assert.match(html, /<a\b[^>]*href=["']#main-content["'][^>]*class=["'][^"']*skip-link/);
+  assert.equal(skipLinks.length, 1);
   assert.match(html, /<header\b/i);
   assert.match(html, /<nav\b[^>]*aria-label=["'][^"']+["']/i);
   assert.equal((html.match(/<h1\b/gi) ?? []).length, 1);
