@@ -200,8 +200,52 @@ function assertEvidenceImage(attrs, provenance) {
   return fallback.stem;
 }
 
-function hasSelector(rule, selector) {
-  return rule.selectors.includes(selector);
+function projectModifierTokens(attributes) {
+  return [...attributeTokens(attributes, 'class')].filter((token) => token.startsWith('work-piece--'));
+}
+
+function assertWorkArticleModifiers(workArticles, expectedModifiers) {
+  assert.equal(workArticles.length, expectedModifiers.length, '#work must contain exactly five semantic project articles');
+
+  for (const modifier of expectedModifiers) {
+    assert.equal(
+      workArticles.filter(({ attributes }) => projectModifierTokens(attributes).includes(modifier)).length,
+      1,
+      `#work must contain exactly one ${modifier} article`
+    );
+  }
+
+  for (const article of workArticles) {
+    const modifiers = projectModifierTokens(article.attributes);
+
+    assert.equal(modifiers.length, 1, 'each work article must have exactly one project modifier');
+    assert.equal(expectedModifiers.includes(modifiers[0]), true, `unexpected work modifier ${modifiers[0]}`);
+  }
+}
+
+function isDarkBackground(declaration) {
+  return ['background', 'background-color'].includes(declaration.property)
+    && /var\(--(?:charcoal|ink)\)|#(?:111213|1b1d1f)\b/i.test(declaration.value);
+}
+
+function affectsWorkComposition(selector) {
+  return selector === '.work-piece'
+    || selector === '#work'
+    || selector === '.page-main'
+    || selector === '#main-content'
+    || selector === '.page-shell'
+    || selector === 'main'
+    || selector === 'body'
+    || selector === 'html'
+    || /\.work-piece\b/.test(selector);
+}
+
+function assertOnlyPythosHasDarkWorkBackground(rules) {
+  const darkWorkSelectors = rules
+    .filter((rule) => rule.declarations.some(isDarkBackground))
+    .flatMap((rule) => rule.selectors.filter(affectsWorkComposition));
+
+  assert.deepEqual(darkWorkSelectors, ['.work-piece--pythos']);
 }
 
 test('homepage exposes one accessible publication shell', async () => {
@@ -396,13 +440,11 @@ test('work is exactly five semantic evidence articles bound to their routes and 
   ];
   const workArticles = articles(sectionBody(html, 'work'));
 
-  assert.equal(workArticles.length, 5, '#work must contain exactly five semantic project articles');
-  assert.equal(new Set(expectedProjects.map(({ modifier }) => modifier)).size, expectedProjects.length);
+  assertWorkArticleModifiers(workArticles, expectedProjects.map(({ modifier }) => modifier));
 
   for (const expected of expectedProjects) {
-    const article = workArticles.find(({ attributes }) => attributeTokens(attributes, 'class').has(expected.modifier));
+    const [article] = workArticles.filter(({ attributes }) => projectModifierTokens(attributes).includes(expected.modifier));
 
-    assert.ok(article, `#work must include the ${expected.modifier} composition`);
     assert.match(article.body, new RegExp(`<a\\b[^>]*\\bhref=["']${expected.route}["']`, 'i'));
     assert.deepEqual(
       openingTags(article.body, 'img').map(({ attributes }) => assertEvidenceImage(attributes, registeredEvidence)).sort(),
@@ -463,10 +505,7 @@ test('homepage styles preserve asymmetric editorial compositions without generic
   assert.equal(effectiveExactDeclarations(desktopRules, '.work-piece--pythos').get('margin-inline'), 'calc(var(--gutter) * -1)');
   assert.equal(effectiveExactDeclarations(desktopRules, '.work-piece--pythos').get('background'), 'var(--charcoal)');
 
-  const workPieceBackgrounds = rules
-    .filter((rule) => rule.selectors.some((selector) => /^\.work-piece--/.test(selector)))
-    .filter((rule) => hasDeclaration(rule, 'background'));
-  assert.deepEqual(workPieceBackgrounds.flatMap((rule) => rule.selectors).filter((selector) => /^\.work-piece--/.test(selector)), ['.work-piece--pythos']);
+  assertOnlyPythosHasDarkWorkBackground(rules);
   assert.equal(/\bcard\b/i.test(html), false, 'homepage markup must not introduce generic card classes');
   assert.equal(/box-shadow\s*:/i.test(homeCss), false, 'homepage must not use card shadows');
   assert.equal(/(?:linear|radial|conic)-gradient\s*\(/i.test(homeCss), false, 'homepage must not use gradients');
@@ -481,14 +520,26 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
   ]);
   const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
   const missingPythosModifier = html.replace('work-piece--pythos', 'work-piece--removed');
+  const duplicatePythosModifier = html.replace('work-piece--warehouse', 'work-piece--pythos');
   const eagerBelowFoldImage = html.replace('loading="lazy"', 'loading="eager"');
   const renamedVerificationHeading = html.replace('VERIFIED WORK', 'VERIFIED SUMMARY');
   const lightPythosBand = homeCss.replace('background: var(--charcoal)', 'background: var(--paper)');
+  const genericDarkWorkBand = `${homeCss}\n.work-piece { background: var(--charcoal); }`;
   const gradientHomepage = `${homeCss}\n.opening { background: linear-gradient(red, blue); }`;
 
   assert.throws(
     () => assert.ok(articles(sectionBody(missingPythosModifier, 'work')).some(({ attributes }) => attributeTokens(attributes, 'class').has('work-piece--pythos'))),
     /work-piece--pythos/
+  );
+  assert.throws(
+    () => assertWorkArticleModifiers(articles(sectionBody(duplicatePythosModifier, 'work')), [
+      'work-piece--ppk',
+      'work-piece--warehouse',
+      'work-piece--skill',
+      'work-piece--workspace',
+      'work-piece--pythos'
+    ]),
+    /exactly one work-piece--warehouse article/
   );
   assert.throws(
     () => assertEvidenceImage(openingTags(eagerBelowFoldImage, 'img')[0].attributes, registeredEvidence),
@@ -501,6 +552,10 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
   assert.throws(
     () => assert.equal(effectiveExactDeclarations(parseCssRules(lightPythosBand), '.work-piece--pythos').get('background'), 'var(--charcoal)'),
     /Expected values to be strictly equal/
+  );
+  assert.throws(
+    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(genericDarkWorkBand)),
+    /Expected values to be strictly deep-equal/
   );
   assert.throws(
     () => assert.equal(/(?:linear|radial|conic)-gradient\s*\(/i.test(gradientHomepage), false),
