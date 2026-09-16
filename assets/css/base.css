@@ -37,6 +37,9 @@ select:focus-visible,
 }
 
 .skip-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   position: fixed;
   z-index: 1;
   top: 0.75rem;
@@ -152,5 +155,11 @@ select:focus-visible,
 
   .site-nav ul {
     justify-content: space-between;
+  }
+
+  .text-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
   }
 }
