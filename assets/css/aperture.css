@@ -51,11 +51,16 @@
   height: 100%;
   object-fit: cover;
   transform: scale(1);
-  transition: transform 4s ease-out;
+  animation: aperture-image-drift 4s ease-out both paused;
 }
 
-[data-aperture-frame]:not([hidden]) .aperture-visuals img {
-  transform: scale(1.025);
+[data-aperture][data-status="playing"] [data-aperture-frame]:not([hidden]) .aperture-visuals img {
+  animation-play-state: running;
+}
+
+@keyframes aperture-image-drift {
+  from { transform: scale(1); }
+  to { transform: scale(1.025); }
 }
 
 .aperture-layer--forklift {
@@ -64,31 +69,59 @@
 
 .aperture-layer--before {
   object-position: center;
-  clip-path: inset(0 52% 0 0);
+  clip-path: inset(0);
+  animation-name: aperture-ppk-before-cut;
+  animation-duration: 4s;
+  animation-timing-function: steps(1, end);
 }
 
 .aperture-layer--after {
   object-position: center;
-  clip-path: inset(0 0 0 49%);
+  clip-path: inset(0 100% 0 0);
+  animation-name: aperture-ppk-after-cut;
+  animation-duration: 4s;
+  animation-timing-function: steps(1, end);
+}
+
+@keyframes aperture-ppk-before-cut {
+  0%, 49.99% { clip-path: inset(0); }
+  50%, 100% { clip-path: inset(0 100% 0 0); }
+}
+
+@keyframes aperture-ppk-after-cut {
+  0%, 49.99% { clip-path: inset(0 100% 0 0); }
+  50%, 100% { clip-path: inset(0); }
 }
 
 [data-aperture-frame]:nth-of-type(3) .aperture-visuals img {
   object-position: 18% center;
+  animation-name: aperture-skill-evidence-crop;
+}
+
+@keyframes aperture-skill-evidence-crop {
+  from { transform: translateX(0) scale(1); }
+  to { transform: translateX(-1.5%) scale(1.025); }
 }
 
 [data-aperture-frame]:nth-of-type(4) .aperture-visuals img {
   object-position: center 43%;
   transform-origin: 58% 52%;
+  animation-name: aperture-workspace-push;
+}
+
+@keyframes aperture-workspace-push {
+  from { transform: perspective(900px) translateZ(0) scale(1); }
+  to { transform: perspective(900px) translateZ(14px) scale(1.025); }
 }
 
 [data-aperture-frame]:nth-of-type(5) .aperture-visuals img {
   object-position: center;
-  transition: none;
+  animation-name: none;
 }
 
 .aperture-layer--pythos-terminal,
 .aperture-layer--pythos-architecture {
-  transition: none;
+  transition-duration: 0s;
   animation-duration: 4.5s;
   animation-timing-function: steps(1, end);
   animation-fill-mode: both;
@@ -105,9 +138,17 @@
   animation-name: aperture-pythos-architecture-cut;
 }
 
-[data-aperture-frame]:nth-of-type(5):not([hidden]) .aperture-layer--pythos-terminal,
-[data-aperture-frame]:nth-of-type(5):not([hidden]) .aperture-layer--pythos-architecture {
-  animation-play-state: running;
+[data-aperture-frame]:nth-of-type(5) .aperture-visuals .aperture-layer--pythos-terminal {
+  animation-name: aperture-pythos-terminal-cut;
+}
+
+[data-aperture-frame]:nth-of-type(5) .aperture-visuals .aperture-layer--pythos-architecture {
+  animation-name: aperture-pythos-architecture-cut;
+}
+
+[data-aperture][data-frame="4"][data-status="playing"] .aperture-layer--pythos-terminal,
+[data-aperture][data-frame="4"][data-status="playing"] .aperture-layer--pythos-architecture {
+  animation-play-state: running !important;
 }
 
 @keyframes aperture-pythos-terminal-cut {
@@ -196,7 +237,7 @@
   .aperture-visuals img,
   [data-aperture-frame]:not([hidden]) .aperture-visuals img {
     transform: none;
-    transition: none;
+    animation: none;
   }
 
   .aperture-layer--forklift,
@@ -240,6 +281,29 @@
 
 [data-aperture][data-motion="reduced"] [data-aperture-frame] {
   transform: none !important;
+}
+
+[data-aperture][data-status="paused"] * {
+  animation-play-state: paused !important;
+}
+
+[data-aperture][data-motion="reduced"] *,
+[data-aperture][data-motion="reduced"] *::before,
+[data-aperture][data-motion="reduced"] *::after {
+  transform: none !important;
+}
+
+[data-aperture][data-motion="reduced"] [data-aperture-frame]:nth-of-type(5) .aperture-visuals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-aperture][data-motion="reduced"] [data-aperture-frame]:nth-of-type(5) .aperture-visuals img {
+  position: static;
+  width: 100%;
+  height: 100%;
+  opacity: 1 !important;
+  object-fit: cover;
 }
 
 @media (prefers-reduced-motion: reduce) {

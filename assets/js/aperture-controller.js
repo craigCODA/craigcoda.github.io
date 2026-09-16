@@ -6,7 +6,7 @@ const STATUS = Object.freeze({
   STOPPED: 'stopped'
 });
 
-export function createApertureController({ durations, onFrame, onComplete = () => {}, schedule, cancel, now }) {
+export function createApertureController({ durations, onFrame, onComplete = () => {}, onState = () => {}, schedule, cancel, now }) {
   if (!Array.isArray(durations) || durations.length === 0 || durations.some((duration) => !Number.isFinite(duration) || duration <= 0)) {
     throw new TypeError('durations must contain positive millisecond values');
   }
@@ -27,6 +27,7 @@ export function createApertureController({ durations, onFrame, onComplete = () =
     if (status !== STATUS.PLAYING) return;
     if (index === durations.length - 1) {
       status = STATUS.COMPLETE;
+      onState(state());
       onComplete(state());
       return;
     }
@@ -48,6 +49,7 @@ export function createApertureController({ durations, onFrame, onComplete = () =
       playCount = 1;
       remaining = durations[0];
       onFrame(index, state());
+      onState(state());
       arm();
     },
     pause() {
@@ -56,16 +58,19 @@ export function createApertureController({ durations, onFrame, onComplete = () =
       timer = null;
       remaining = Math.max(0, deadline - now());
       status = STATUS.PAUSED;
+      onState(state());
     },
     resume() {
       if (status !== STATUS.PAUSED) return;
       status = STATUS.PLAYING;
+      onState(state());
       arm();
     },
     stop() {
       if (timer !== null) cancel(timer);
       timer = null;
       status = STATUS.STOPPED;
+      onState(state());
     },
     state
   });

@@ -14,7 +14,9 @@ const aperture = document.querySelector('[data-aperture]');
 if (aperture) {
   const frames = [...aperture.querySelectorAll('[data-aperture-frame]')];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  let inMeaningfulView = false;
+  let enteredMeaningfulView = false;
+  let inViewport = false;
+  let cleanedUp = false;
 
   const syncMotion = () => {
     aperture.dataset.motion = reducedMotion.matches ? 'reduced' : 'full';
@@ -31,13 +33,15 @@ if (aperture) {
     aperture.dataset.status = state.status;
     aperture.dataset.playCount = String(state.playCount);
   };
+  const syncState = (state) => {
+    aperture.dataset.status = state.status;
+    aperture.dataset.playCount = String(state.playCount);
+  };
   const controller = createApertureController({
     durations: frames.map((frame) => Number(frame.dataset.duration)),
     onFrame: render,
-    onComplete: (state) => {
-      aperture.dataset.status = state.status;
-      aperture.dataset.playCount = String(state.playCount);
-    },
+    onComplete: () => cleanup(),
+    onState: syncState,
     schedule: window.setTimeout.bind(window),
     cancel: window.clearTimeout.bind(window),
     now: () => performance.now()
@@ -51,7 +55,8 @@ if (aperture) {
 
   const reconcile = () => {
     const { status } = controller.state();
-    if (document.hidden || !inMeaningfulView) {
+    if (!enteredMeaningfulView || status === 'complete' || status === 'stopped') return;
+    if (document.hidden || !inViewport) {
       controller.pause();
     } else if (status === 'idle') {
       controller.start();
@@ -60,11 +65,29 @@ if (aperture) {
     }
   };
 
-  const observer = new IntersectionObserver(([entry]) => {
-    inMeaningfulView = entry.isIntersecting && entry.intersectionRatio >= 0.55;
+  const entryObserver = new IntersectionObserver(([entry]) => {
+    if (!(entry.isIntersecting && entry.intersectionRatio >= 0.55)) return;
+    enteredMeaningfulView = true;
+    inViewport = true;
     reconcile();
   }, { threshold: 0.55, rootMargin: '0px 0px -10% 0px' });
+  const viewportObserver = new IntersectionObserver(([entry]) => {
+    inViewport = entry.isIntersecting;
+    reconcile();
+  }, { threshold: 0 });
+  const onVisibilityChange = () => reconcile();
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    entryObserver.disconnect();
+    viewportObserver.disconnect();
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('pagehide', cleanup);
+    reducedMotion.removeEventListener('change', syncMotion);
+  };
 
-  document.addEventListener('visibilitychange', reconcile);
-  observer.observe(aperture);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pagehide', cleanup, { once: true });
+  entryObserver.observe(aperture);
+  viewportObserver.observe(aperture);
 }
