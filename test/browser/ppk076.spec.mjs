@@ -77,17 +77,23 @@ test('mobile PPK076 route stacks the matched evidence pair with both comparison 
   expect(errors).toEqual([]);
 });
 
-test('PPK076 reflows at 320 pixels and 200 percent page scale without horizontal overflow', async ({ page }, testInfo) => {
+test('PPK076 reflows at a 320 CSS-pixel viewport, the layout width at 200 percent browser zoom', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile');
   const errors = capturePageErrors(page);
+  // Browser zoom doubles CSS pixels per physical pixel. A 640px browser at 200% therefore
+  // presents a 320 CSS-pixel layout viewport; setting that viewport exercises reflow rather
+  // than CDP pageScaleFactor's visual-only pinch scaling.
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto(ppkRoute);
-  const session = await page.context().newCDPSession(page);
+  const pair = page.locator('.ppk-matched-pair');
+  const frames = pair.locator('.evidence-figure');
 
-  await session.send('Emulation.setPageScaleFactor', { pageScaleFactor: 2 });
-  await expect.poll(() => page.evaluate(() => visualViewport.scale)).toBe(2);
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(320);
+  await expect.poll(() => page.evaluate(() => matchMedia('(max-width: 42rem)').matches)).toBe(true);
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  await expect(page.locator('.ppk-matched-pair')).toBeVisible();
+  await expect(pair).toBeVisible();
+  const [firstFrame, secondFrame] = await Promise.all([frames.nth(0).boundingBox(), frames.nth(1).boundingBox()]);
+  expect(secondFrame.y).toBeGreaterThan(firstFrame.y + firstFrame.height);
   expect(errors).toEqual([]);
 });
 
@@ -115,11 +121,11 @@ test('PPK076 lazy comparison and boundary evidence decodes after scrolling', asy
   test.skip(testInfo.project.name !== 'mobile');
   const errors = capturePageErrors(page);
   await page.goto(ppkRoute);
-  const lazyEvidence = page.locator('.ppk-matched-pair img, .ppk-boundary-diagrams img');
+  const lazyEvidence = page.locator('.ppk-page img[loading="lazy"]');
 
-  await expect(lazyEvidence).toHaveCount(4);
-  await expect(lazyEvidence.evaluateAll((images) => images.map((image) => image.getAttribute('loading')))).resolves.toEqual(['lazy', 'lazy', 'lazy', 'lazy']);
-  for (let index = 0; index < 4; index += 1) {
+  await expect(lazyEvidence).toHaveCount(9);
+  await expect(lazyEvidence.evaluateAll((images) => images.map((image) => image.getAttribute('loading')))).resolves.toEqual(Array(9).fill('lazy'));
+  for (let index = 0; index < 9; index += 1) {
     const image = lazyEvidence.nth(index);
     await image.scrollIntoViewIfNeeded();
     await expect.poll(() => image.evaluate((element) => element.complete && element.naturalWidth > 0 && element.naturalHeight > 0)).toBe(true);

@@ -28,33 +28,47 @@ function assertNoPpkVisibleMetrics(text) {
   assert.deepEqual(metrics, [], `PPK visible text must not publish warehouse metrics: ${metrics.join(', ')}`);
 }
 
+const approvedPpkVisibleContent = [
+  { label: 'physical layout problem', pattern: /physical layout, storage, movement, and training/i },
+  { label: 'disconnected records problem', pattern: /disconnected records/i },
+  { label: 'offline Three.js simulation', pattern: /offline-capable browser-based Three\.js warehouse simulation/i },
+  { label: 'walking and forklift interaction', pattern: /walking and forklift interaction/i },
+  { label: 'camera modes', pattern: /camera modes/i },
+  { label: 'PWA support', pattern: /PWA support/i },
+  { label: 'WebXR browser direction', pattern: /WebXR-compatible browser direction/i },
+  { label: 'Electron packaging', pattern: /Electron packaging/i },
+  { label: 'modeled physical regions', pattern: /physical regions are modeled as regions with meaning/i },
+  { label: 'manual export boundary', pattern: /manual export/i },
+  { label: 'local parsing boundary', pattern: /local parsing/i },
+  { label: 'no SAP return path', pattern: /no SAP return path/i },
+  { label: 'top-down evidence', pattern: /top-down inset/i },
+  { label: 'matched-camera before and after visualization', pattern: /same camera before and after a supported local import visualization/i },
+  { label: 'rack and floor-bin evidence', pattern: /rack positions and floor-bin areas/i },
+  { label: 'operational relationship evidence', pattern: /operational relationship/i },
+  { label: 'security-boundary diagram caption', pattern: /Supported data boundary\./i },
+  { label: 'multisite-build diagram caption', pattern: /reusable facility-build method/i },
+  { label: 'inspectable result', pattern: /inspectable/i },
+  { label: 'Three.js technology', pattern: /Three\.js/i },
+  { label: 'JavaScript technology', pattern: /JavaScript/i },
+  { label: 'CSS technology', pattern: /CSS/i },
+  { label: 'PWA service worker technology', pattern: /PWA and service worker/i },
+  { label: 'Node scripts technology', pattern: /Node build scripts/i },
+  { label: 'decision and training boundary', pattern: /simulation and decision\/training aid/i },
+  { label: 'optional movement capture boundary', pattern: /optional movement capture/i },
+  { label: 'public verification wording', pattern: /public verification surfaces/i }
+];
+
+function assertApprovedPpkVisibleContent(text) {
+  for (const { label, pattern } of approvedPpkVisibleContent) {
+    assert.match(text, pattern, `missing approved PPK visible content: ${label}`);
+  }
+}
+
 test('PPK076 describes the supported local boundary without exposing inventory records or warehouse-optimization results', async () => {
   const ppk = await readFile(new URL('../projects/ppk076/index.html', import.meta.url), 'utf8');
   const visibleText = ppkVisibleText(ppk);
 
-  for (const content of [
-    /physical layout, storage, movement, and training/i,
-    /disconnected records/i,
-    /offline-capable browser-based Three\.js warehouse simulation/i,
-    /walking and forklift interaction/i,
-    /camera modes/i,
-    /PWA support/i,
-    /WebXR-compatible browser direction/i,
-    /Electron packaging/i,
-    /manual export/i,
-    /local parsing/i,
-    /no SAP return path/i,
-    /top-down inset/i,
-    /rack positions and floor-bin areas/i,
-    /operational relationship/i,
-    /inspectable/i,
-    /Three\.js/i,
-    /PWA and service worker/i,
-    /Node build scripts/i,
-    /simulation and decision\/training aid/i,
-    /optional movement capture/i,
-    /public verification surfaces/i
-  ]) assert.match(visibleText, content);
+  assertApprovedPpkVisibleContent(visibleText);
 
   assertNoPpkVisibleMetrics(visibleText);
   assert.doesNotMatch(visibleText, /(?:material number|storage bin|inventory record)\s*[:|]/i);
@@ -63,6 +77,20 @@ test('PPK076 describes the supported local boundary without exposing inventory r
   assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 176/22 bins and 222 positions / 26 bins`), /176, 22, 222, 26/);
   assert.doesNotThrow(() => assertNoPpkVisibleMetrics(`${visibleText} CRC176F4C6E zone22alpha`));
   assert.doesNotThrow(() => assertNoPpkVisibleMetrics(ppkVisibleText(`${ppk}<script>const metric = 176;</script>`)));
+
+  for (const { label, pattern } of approvedPpkVisibleContent.filter(({ label }) => [
+    'modeled physical regions',
+    'matched-camera before and after visualization',
+    'security-boundary diagram caption',
+    'multisite-build diagram caption',
+    'JavaScript technology',
+    'CSS technology'
+  ].includes(label))) {
+    assert.throws(
+      () => assertApprovedPpkVisibleContent(visibleText.replace(pattern, '')),
+      new RegExp(label)
+    );
+  }
 });
 
 test('homepage publishes only the approved evidence-led claims', async () => {

@@ -592,6 +592,8 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
   );
   const unsafeSourceLink = ppk.replace('rel="noopener noreferrer"', 'rel="noopener"');
   const missingSizes = ppk.replace('sizes="100vw"', '');
+  const missingAvifCandidate = ppk.replace('/assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1080w.avif 1080w, ', '');
+  const missingWebpCandidate = ppk.replace('/assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1080w.webp 1080w, ', '');
   const smallerOpeningFallback = ppk.replace(
     'ppk076_full_facility_oblique-1759w.webp" alt=',
     'ppk076_full_facility_oblique-640w.webp" alt='
@@ -612,6 +614,14 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
   assert.throws(
     () => assertPpkPictureEvidence(pictures(smallerOpeningFallback)[0], registeredPpkEvidence, { opening: true }),
     /must use the largest registered fallback/
+  );
+  assert.throws(
+    () => assertPpkPictureEvidence(pictures(missingAvifCandidate)[0], registeredPpkEvidence, { opening: true }),
+    /candidates must match every registered responsive width/
+  );
+  assert.throws(
+    () => assertPpkPictureEvidence(pictures(missingWebpCandidate)[0], registeredPpkEvidence, { opening: true }),
+    /candidates must match every registered responsive width/
   );
   await assert.rejects(
     assertPpkCandidateFiles([{ path: '/assets/evidence/optimized/ppk076/missing-640w.avif' }]),
