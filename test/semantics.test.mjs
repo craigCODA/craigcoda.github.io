@@ -7,6 +7,13 @@ const baseCssUrl = new URL('../assets/css/base.css', import.meta.url);
 const tokensCssUrl = new URL('../assets/css/tokens.css', import.meta.url);
 const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
 const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
+const expectedWorkModifiers = [
+  'work-piece--ppk',
+  'work-piece--warehouse',
+  'work-piece--skill',
+  'work-piece--workspace',
+  'work-piece--pythos'
+];
 const textLinkDocuments = [
   '../404.html',
   '../projects/ppk076/index.html',
@@ -204,9 +211,11 @@ function projectModifierTokens(attributes) {
   return [...attributeTokens(attributes, 'class')].filter((token) => token.startsWith('work-piece--'));
 }
 
-function assertWorkArticleModifiers(workArticles, expectedModifiers) {
+function assertWorkArticleCount(workArticles, expectedModifiers) {
   assert.equal(workArticles.length, expectedModifiers.length, '#work must contain exactly five semantic project articles');
+}
 
+function assertEveryExpectedModifierOccursOnce(workArticles, expectedModifiers) {
   for (const modifier of expectedModifiers) {
     assert.equal(
       workArticles.filter(({ attributes }) => projectModifierTokens(attributes).includes(modifier)).length,
@@ -214,13 +223,30 @@ function assertWorkArticleModifiers(workArticles, expectedModifiers) {
       `#work must contain exactly one ${modifier} article`
     );
   }
+}
 
+function assertEachArticleHasOneExpectedModifier(workArticles, expectedModifiers) {
   for (const article of workArticles) {
     const modifiers = projectModifierTokens(article.attributes);
 
     assert.equal(modifiers.length, 1, 'each work article must have exactly one project modifier');
-    assert.equal(expectedModifiers.includes(modifiers[0]), true, `unexpected work modifier ${modifiers[0]}`);
+    assert.equal(expectedModifiers.includes(modifiers[0]), true, `article modifier ${modifiers[0]} must be expected`);
   }
+}
+
+function assertNoUnknownProjectModifiers(workArticles, expectedModifiers) {
+  for (const article of workArticles) {
+    for (const modifier of projectModifierTokens(article.attributes)) {
+      assert.equal(expectedModifiers.includes(modifier), true, `unexpected work modifier ${modifier}`);
+    }
+  }
+}
+
+function assertWorkArticleModifiers(workArticles, expectedModifiers) {
+  assertWorkArticleCount(workArticles, expectedModifiers);
+  assertEveryExpectedModifierOccursOnce(workArticles, expectedModifiers);
+  assertEachArticleHasOneExpectedModifier(workArticles, expectedModifiers);
+  assertNoUnknownProjectModifiers(workArticles, expectedModifiers);
 }
 
 function isDarkBackground(declaration) {
@@ -229,23 +255,39 @@ function isDarkBackground(declaration) {
 }
 
 function affectsWorkComposition(selector) {
-  return selector === '.work-piece'
-    || selector === '#work'
-    || selector === '.page-main'
-    || selector === '#main-content'
-    || selector === '.page-shell'
-    || selector === 'main'
-    || selector === 'body'
-    || selector === 'html'
-    || /\.work-piece\b/.test(selector);
+  return /(?:^|[\s>+~])(?:body|main)\b|\.(?:page-shell|page-main|work-index|work-piece)\b|#(?:main-content|work)\b/.test(selector);
+}
+
+// This deliberately models only source order and !important for identical selector/context
+// background declarations. It is a homepage source contract, not a general CSS cascade engine.
+function effectiveBackgroundDeclarations(rules) {
+  const effective = new Map();
+
+  for (const rule of rules) {
+    for (const selector of rule.selectors) {
+      for (const declaration of rule.declarations) {
+        if (!['background', 'background-color'].includes(declaration.property)) continue;
+
+        const key = `${rule.atRules.join('\u0000')}\u0000${selector}`;
+        const current = effective.get(key);
+        if (!current || !current.declaration.important || declaration.important) {
+          effective.set(key, { selector, atRules: rule.atRules, declaration });
+        }
+      }
+    }
+  }
+
+  return [...effective.values()];
 }
 
 function assertOnlyPythosHasDarkWorkBackground(rules) {
-  const darkWorkSelectors = rules
-    .filter((rule) => rule.declarations.some(isDarkBackground))
-    .flatMap((rule) => rule.selectors.filter(affectsWorkComposition));
+  const darkWorkBackgrounds = effectiveBackgroundDeclarations(rules)
+    .filter(({ selector, declaration }) => affectsWorkComposition(selector) && isDarkBackground(declaration));
 
-  assert.deepEqual(darkWorkSelectors, ['.work-piece--pythos']);
+  assert.ok(darkWorkBackgrounds.some(({ selector }) => selector === '.work-piece--pythos'), 'PythOS must retain its dark evidence band');
+  for (const { selector } of darkWorkBackgrounds) {
+    assert.equal(selector, '.work-piece--pythos', `${selector} must not darken non-PythOS work`);
+  }
 }
 
 test('homepage exposes one accessible publication shell', async () => {
@@ -440,7 +482,7 @@ test('work is exactly five semantic evidence articles bound to their routes and 
   ];
   const workArticles = articles(sectionBody(html, 'work'));
 
-  assertWorkArticleModifiers(workArticles, expectedProjects.map(({ modifier }) => modifier));
+  assertWorkArticleModifiers(workArticles, expectedWorkModifiers);
 
   for (const expected of expectedProjects) {
     const [article] = workArticles.filter(({ attributes }) => projectModifierTokens(attributes).includes(expected.modifier));
@@ -520,26 +562,43 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
   ]);
   const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
   const missingPythosModifier = html.replace('work-piece--pythos', 'work-piece--removed');
-  const duplicatePythosModifier = html.replace('work-piece--warehouse', 'work-piece--pythos');
+  const duplicatePythosModifier = html.replace(
+    'class="work-piece work-piece--skill"',
+    'class="work-piece work-piece--skill work-piece--pythos"'
+  );
+  const twoExpectedModifiers = html.replace(
+    'class="work-piece work-piece--workspace"',
+    'class="work-piece work-piece--workspace work-piece--skill"'
+  );
+  const unknownProjectModifier = html.replace(
+    'class="work-piece work-piece--ppk"',
+    'class="work-piece work-piece--ppk work-piece--experimental"'
+  );
   const eagerBelowFoldImage = html.replace('loading="lazy"', 'loading="eager"');
   const renamedVerificationHeading = html.replace('VERIFIED WORK', 'VERIFIED SUMMARY');
   const lightPythosBand = homeCss.replace('background: var(--charcoal)', 'background: var(--paper)');
   const genericDarkWorkBand = `${homeCss}\n.work-piece { background: var(--charcoal); }`;
+  const compoundAncestorDarkBand = `${homeCss}\n.page-shell .page-main { background: var(--charcoal); }`;
+  const overriddenDarkAncestor = `${homeCss}\n.page-main { background: var(--charcoal); }\n.page-main { background: var(--paper); }`;
+  const repeatedPythosDarkBand = `${homeCss}\n.work-piece--pythos { background: var(--charcoal); }\n.work-piece--pythos { background: var(--charcoal) !important; }`;
+  const unrelatedDarkFooter = `${homeCss}\n.site-footer { background: var(--charcoal); }`;
   const gradientHomepage = `${homeCss}\n.opening { background: linear-gradient(red, blue); }`;
 
   assert.throws(
-    () => assert.ok(articles(sectionBody(missingPythosModifier, 'work')).some(({ attributes }) => attributeTokens(attributes, 'class').has('work-piece--pythos'))),
-    /work-piece--pythos/
+    () => assertEveryExpectedModifierOccursOnce(articles(sectionBody(missingPythosModifier, 'work')), expectedWorkModifiers),
+    /exactly one work-piece--pythos article/
   );
   assert.throws(
-    () => assertWorkArticleModifiers(articles(sectionBody(duplicatePythosModifier, 'work')), [
-      'work-piece--ppk',
-      'work-piece--warehouse',
-      'work-piece--skill',
-      'work-piece--workspace',
-      'work-piece--pythos'
-    ]),
-    /exactly one work-piece--warehouse article/
+    () => assertEveryExpectedModifierOccursOnce(articles(sectionBody(duplicatePythosModifier, 'work')), expectedWorkModifiers),
+    /exactly one work-piece--pythos article/
+  );
+  assert.throws(
+    () => assertEachArticleHasOneExpectedModifier(articles(sectionBody(twoExpectedModifiers, 'work')), expectedWorkModifiers),
+    /exactly one project modifier/
+  );
+  assert.throws(
+    () => assertNoUnknownProjectModifiers(articles(sectionBody(unknownProjectModifier, 'work')), expectedWorkModifiers),
+    /unexpected work modifier work-piece--experimental/
   );
   assert.throws(
     () => assertEvidenceImage(openingTags(eagerBelowFoldImage, 'img')[0].attributes, registeredEvidence),
@@ -555,8 +614,15 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
   );
   assert.throws(
     () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(genericDarkWorkBand)),
-    /Expected values to be strictly deep-equal/
+    /work-piece must not darken non-PythOS work/
   );
+  assert.throws(
+    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(compoundAncestorDarkBand)),
+    /page-shell \.page-main must not darken non-PythOS work/
+  );
+  assert.doesNotThrow(() => assertOnlyPythosHasDarkWorkBackground(parseCssRules(overriddenDarkAncestor)));
+  assert.doesNotThrow(() => assertOnlyPythosHasDarkWorkBackground(parseCssRules(repeatedPythosDarkBand)));
+  assert.doesNotThrow(() => assertOnlyPythosHasDarkWorkBackground(parseCssRules(unrelatedDarkFooter)));
   assert.throws(
     () => assert.equal(/(?:linear|radial|conic)-gradient\s*\(/i.test(gradientHomepage), false),
     /Expected values to be strictly equal/
