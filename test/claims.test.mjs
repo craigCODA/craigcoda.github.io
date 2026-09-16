@@ -213,3 +213,28 @@ test('selected PythOS evidence band carries its target-specific metrics', async 
   assert.match(pythosBand, /CRC 176F4C6E/i);
   assert.match(pythosBand, /target-specific physical evidence/i);
 });
+
+test('Skill Evaluation Lab limits behavioral claims to its preserved experimental evidence', async () => {
+  const skillLab = await readFile(new URL('../projects/skill-evaluation-lab/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(skillLab);
+
+  for (const claim of [
+    /Control/i,
+    /Isolate/i,
+    /Compare/i,
+    /Replicate/i,
+    /Verify/i,
+    /preserved failures/i,
+    /SHA-256/i,
+    /experimental/i,
+    /captured saved record/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+
+  assert.match(skillLab, /href=["']https:\/\/github\.com\/craigCODA\/Skill-Evaluation-Lab["']/i);
+  assert.match(skillLab, /href=["']https:\/\/github\.com\/craigCODA\/Skill-Evaluation-Lab\/releases\/tag\/evidence-0001-0015["']/i);
+  assert.doesNotMatch(visibleText, /\bdashboard\b/i);
+  assert.match(visibleText, /not promoted as general improvements/i);
+  assert.doesNotMatch(visibleText, /candidates? (?:is|are|show|represent) (?:a )?general improvement/i);
+});

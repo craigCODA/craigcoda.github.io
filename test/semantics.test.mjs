@@ -10,6 +10,7 @@ const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.
 const ppkUrl = new URL('../projects/ppk076/index.html', import.meta.url);
 const ppkCssUrl = new URL('../assets/css/projects/ppk076.css', import.meta.url);
 const warehouseCssUrl = new URL('../assets/css/projects/warehouse.css', import.meta.url);
+const skillLabCssUrl = new URL('../assets/css/projects/skill-lab.css', import.meta.url);
 const expectedWorkModifiers = [
   'work-piece--ppk',
   'work-piece--warehouse',
@@ -835,6 +836,47 @@ test('warehouse route provides the shared case-study sections and its public-saf
     () => assertResponsivePictureEvidence(pictures(smallerFallback)[0], registeredEvidence),
     /must use the largest registered fallback/
   );
+});
+
+test('Skill Evaluation Lab preserves an evidence chain, saved-record disclosure, and responsive evidence', async () => {
+  const [skillLab, skillLabCss, provenance] = await Promise.all([
+    readFile(new URL('../projects/skill-evaluation-lab/index.html', import.meta.url), 'utf8'),
+    readFile(skillLabCssUrl, 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse)
+  ]);
+  const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const expectedHeadings = [
+    'Problem',
+    'What I built',
+    'Architecture / decisions',
+    'Evidence',
+    'Result',
+    'Technologies',
+    'Current boundary / unfinished work',
+    'Source / demo / verification'
+  ];
+
+  assert.match(skillLab, /<link rel=["']stylesheet["'] href=["']\/assets\/css\/projects\/skill-lab\.css["']>/i);
+  for (const heading of expectedHeadings) {
+    assert.match(skillLab, new RegExp(`<h2\\b[^>]*>\\s*${heading}\\s*<\\/h2>`, 'i'));
+  }
+  assertLink(skillLab, 'Source repository', 'https://github.com/craigCODA/Skill-Evaluation-Lab', { safeExternal: true });
+  assertLink(skillLab, 'Evidence release: evidence-0001-0015', 'https://github.com/craigCODA/Skill-Evaluation-Lab/releases/tag/evidence-0001-0015', { safeExternal: true });
+
+  const skillPictures = pictures(skillLab);
+  assert.equal(skillPictures.length, 1, 'Skill Evaluation Lab must use one responsive evidence map');
+  const pictureEvidence = assertResponsivePictureEvidence(skillPictures[0], registeredEvidence);
+  assert.equal(pictureEvidence.stem, 'assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map');
+  await assertResponsiveCandidateFiles(pictureEvidence.candidates);
+
+  const rules = parseCssRules(skillLabCss);
+  const desktopChain = effectiveExactDeclarations(rules.filter((rule) => rule.atRules.length === 0), '.skill-evidence-chain');
+  const narrowChain = effectiveExactDeclarations(rules.filter(isRequiredNarrowMediaRule), '.skill-evidence-chain');
+  assert.match(desktopChain.get('grid-template-columns') ?? '', /repeat\(5,/i);
+  assert.equal(narrowChain.get('grid-template-columns'), '1fr');
+  assert.match(skillLabCss, /counter-reset:\s*evidence-step/i);
+  assert.match(skillLabCss, /\.skill-evidence-chain li::before[\s\S]*?content:\s*counter\(evidence-step/i);
+  assert.doesNotMatch(skillLabCss, /(?:chart|dashboard|box-shadow|border-radius|gradient)/i);
 });
 
 test('every selected work evidence image resolves to provenance with its registered intrinsic contract', async () => {
