@@ -5,10 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 import { PROTECTED_FILE_HASHES, SITE_ROUTES } from './site-files.mjs';
 
-const textExtensions = new Set(['.css', '.html', '.js', '.json', '.mjs']);
+const textExtensions = new Set(['.css', '.html', '.js', '.json', '.mjs', '.svg']);
 const imageExtensions = new Set(['.avif', '.gif', '.jpeg', '.jpg', '.png', '.svg', '.webp']);
 const forbiddenText = [
   ['warehouse SVG filename', 'warehouse_wh1_bin_map_high_quality.svg'],
+  ['warehouse map title', 'WH1 Bin Location Map'],
   ['warehouse restricted count', '+222'],
   ['warehouse restricted count', /\b26 bins\b/i]
 ];
@@ -81,13 +82,24 @@ function attributeValues(markup, attribute) {
   return [...markup.matchAll(expression)].map((match) => match[1] ?? match[2] ?? match[3]);
 }
 
+function assertImageProvenance(relativePath, source, provenanceStems) {
+  const local = localReference(source);
+  if (!local || !imageExtensions.has(path.extname(local).toLowerCase())) return;
+  const normalized = local.replace(/^\//, '').replace(/-\d+w\.(?:avif|webp)$/i, '');
+  if (!provenanceStems.has(normalized)) fail(relativePath, `public image is missing provenance: ${source}`);
+}
+
 async function auditHtml(root, file, relativePath, markup, provenanceStems) {
   for (const attribute of ['href', 'src', 'data-src']) {
     for (const reference of attributeValues(markup, attribute)) await assertReference(root, file, reference, attribute);
   }
   for (const attribute of ['srcset', 'data-srcset']) {
     for (const srcset of attributeValues(markup, attribute)) {
-      for (const candidate of srcset.split(',')) await assertReference(root, file, candidate.trim().split(/\s+/, 1)[0], attribute);
+      for (const candidate of srcset.split(',')) {
+        const source = candidate.trim().split(/\s+/, 1)[0];
+        await assertReference(root, file, source, attribute);
+        assertImageProvenance(relativePath, source, provenanceStems);
+      }
     }
   }
   for (const match of markup.matchAll(/<img\b([^>]*)>/gi)) {
@@ -101,12 +113,7 @@ async function auditHtml(root, file, relativePath, markup, provenanceStems) {
     if (!/^\d+$/.test(height ?? '')) fail(relativePath, 'img height must be numeric');
     if (!/^(?:lazy|eager)$/i.test(loading ?? '')) fail(relativePath, 'img must declare loading behavior');
     const source = attributeValues(attributes, 'src')[0] ?? attributeValues(attributes, 'data-src')[0];
-    if (source && imageExtensions.has(path.extname(source.split(/[?#]/, 1)[0]).toLowerCase())) {
-      const normalized = source.split(/[?#]/, 1)[0].replace(/^\//, '').replace(/-\d+w\.(?:avif|webp)$/i, '');
-      if (!provenanceStems.has(normalized)) {
-        fail(relativePath, `public image is missing provenance: ${source}`);
-      }
-    }
+    if (source) assertImageProvenance(relativePath, source, provenanceStems);
   }
   for (const [plannedFile, links] of expectedLinks) {
     if (relativePath !== plannedFile) continue;

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { access, readFile, stat } from 'node:fs/promises';
+import { access, cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -9,6 +10,7 @@ import {
   assertWarehouseDisclosureEntries,
   readWarehouseBoundaryEntries
 } from './warehouse-boundary.mjs';
+import { auditPublicOutput } from '../scripts/audit-public-output.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const evidenceRoot = path.join(repositoryRoot, 'assets', 'evidence');
@@ -37,6 +39,13 @@ const approvedSources = [
 
 async function readProvenance() {
   return JSON.parse(await readFile(provenancePath, 'utf8'));
+}
+
+async function createAuditFixture() {
+  await execFileAsync(process.execPath, ['scripts/build.mjs'], { cwd: repositoryRoot });
+  const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), 'portfolio-output-audit-'));
+  await cp(path.join(repositoryRoot, 'dist'), fixtureRoot, { recursive: true });
+  return fixtureRoot;
 }
 
 function largestApertureRecords(records) {
@@ -89,6 +98,41 @@ test('excluded raw warehouse bin map is neither registered nor copied', async ()
 test('public-output audit accepts the built allowlist and public evidence contracts', async () => {
   await execFileAsync(process.execPath, ['scripts/build.mjs'], { cwd: repositoryRoot });
   await execFileAsync(process.execPath, ['scripts/audit-public-output.mjs', 'dist'], { cwd: repositoryRoot });
+});
+
+test('public-output audit rejects warehouse map wording inside a renamed SVG', async (context) => {
+  const fixtureRoot = await createAuditFixture();
+  context.after(() => rm(fixtureRoot, { recursive: true, force: true }));
+  const renamedSvg = path.join(fixtureRoot, 'assets', 'evidence', 'optimized', 'warehouse', 'public-diagram.svg');
+
+  await writeFile(renamedSvg, '<svg><title>WH1 Bin Location Map</title></svg>');
+
+  await assert.rejects(
+    auditPublicOutput(fixtureRoot),
+    /assets\/evidence\/optimized\/warehouse\/public-diagram\.svg: warehouse map title/
+  );
+});
+
+test('public-output audit rejects an existing but unprovenanced responsive source candidate', async (context) => {
+  const fixtureRoot = await createAuditFixture();
+  context.after(() => rm(fixtureRoot, { recursive: true, force: true }));
+  const copiedCandidate = path.join(fixtureRoot, 'assets', 'evidence', 'optimized', 'warehouse', 'unprovenanced-720w.webp');
+  const builtHome = path.join(fixtureRoot, 'index.html');
+  const knownFallback = '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-720w.webp';
+
+  await cp(path.join(fixtureRoot, knownFallback.slice(1)), copiedCandidate);
+  await writeFile(
+    builtHome,
+    (await readFile(builtHome, 'utf8')).replace(
+      '</body>',
+      `<picture><source type="image/webp" srcset="/assets/evidence/optimized/warehouse/unprovenanced-720w.webp 720w"><img src="${knownFallback}" alt="Known fallback for candidate audit" width="1800" height="1000" loading="lazy"></picture></body>`
+    )
+  );
+
+  await assert.rejects(
+    auditPublicOutput(fixtureRoot),
+    /index\.html: public image is missing provenance: \/assets\/evidence\/optimized\/warehouse\/unprovenanced-720w\.webp/
+  );
 });
 
 test('warehouse route consumes only the declared public-safe result visual', async () => {
