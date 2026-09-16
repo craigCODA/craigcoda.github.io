@@ -561,6 +561,7 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
     readFile(provenanceUrl, 'utf8').then(JSON.parse)
   ]);
   const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const fourWorkArticles = articles(sectionBody(html, 'work')).slice(0, 4);
   const missingPythosModifier = html.replace('work-piece--pythos', 'work-piece--removed');
   const duplicatePythosModifier = html.replace(
     'class="work-piece work-piece--skill"',
@@ -578,12 +579,20 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
   const renamedVerificationHeading = html.replace('VERIFIED WORK', 'VERIFIED SUMMARY');
   const lightPythosBand = homeCss.replace('background: var(--charcoal)', 'background: var(--paper)');
   const genericDarkWorkBand = `${homeCss}\n.work-piece { background: var(--charcoal); }`;
+  const importantDarkWorkBand = `${homeCss}\n.work-piece { background: var(--charcoal) !important; }\n.work-piece { background: var(--paper); }`;
+  const laterDarkWorkBand = `${homeCss}\n.work-piece { background: var(--paper); }\n.work-piece { background: var(--charcoal); }`;
+  const bodyDarkBand = `${homeCss}\nbody { background: var(--charcoal); }`;
+  const workBackgroundColor = `${homeCss}\n#work { background-color: var(--charcoal); }`;
   const compoundAncestorDarkBand = `${homeCss}\n.page-shell .page-main { background: var(--charcoal); }`;
   const overriddenDarkAncestor = `${homeCss}\n.page-main { background: var(--charcoal); }\n.page-main { background: var(--paper); }`;
   const repeatedPythosDarkBand = `${homeCss}\n.work-piece--pythos { background: var(--charcoal); }\n.work-piece--pythos { background: var(--charcoal) !important; }`;
   const unrelatedDarkFooter = `${homeCss}\n.site-footer { background: var(--charcoal); }`;
   const gradientHomepage = `${homeCss}\n.opening { background: linear-gradient(red, blue); }`;
 
+  assert.throws(
+    () => assertWorkArticleCount(fourWorkArticles, expectedWorkModifiers),
+    /#work must contain exactly five semantic project articles/
+  );
   assert.throws(
     () => assertEveryExpectedModifierOccursOnce(articles(sectionBody(missingPythosModifier, 'work')), expectedWorkModifiers),
     /exactly one work-piece--pythos article/
@@ -615,6 +624,22 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
   assert.throws(
     () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(genericDarkWorkBand)),
     /work-piece must not darken non-PythOS work/
+  );
+  assert.throws(
+    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(importantDarkWorkBand)),
+    /work-piece must not darken non-PythOS work/
+  );
+  assert.throws(
+    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(laterDarkWorkBand)),
+    /work-piece must not darken non-PythOS work/
+  );
+  assert.throws(
+    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(bodyDarkBand)),
+    /body must not darken non-PythOS work/
+  );
+  assert.throws(
+    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(workBackgroundColor)),
+    /#work must not darken non-PythOS work/
   );
   assert.throws(
     () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(compoundAncestorDarkBand)),
