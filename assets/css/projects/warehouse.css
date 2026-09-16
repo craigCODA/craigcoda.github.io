@@ -179,3 +179,21 @@
     font-size: clamp(4rem, 22vw, 7rem);
   }
 }
+
+@media (max-width: 22rem) {
+  .warehouse-page .project-header .display {
+    max-width: 100%;
+    font-size: clamp(2.5rem, 15vw, 3.25rem);
+    overflow-wrap: anywhere;
+  }
+
+  .warehouse-flow li {
+    grid-template-columns: 1fr;
+  }
+
+  .warehouse-flow strong,
+  .warehouse-flow span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}

@@ -5,6 +5,10 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
+import {
+  assertWarehouseDisclosureEntries,
+  readWarehouseBoundaryEntries
+} from './warehouse-boundary.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const evidenceRoot = path.join(repositoryRoot, 'assets', 'evidence');
@@ -92,13 +96,15 @@ test('warehouse route consumes only the declared public-safe result visual', asy
   assert.equal(visual?.disclosure, 'public-safe generated abstraction');
   assert.deepEqual(visual?.roles, ['aperture', 'warehouse hero', 'verified work']);
   assert.match(warehouse, /\/assets\/evidence\/optimized\/warehouse\/warehouse-optimization-verified-result-1800w\.webp/i);
-  assert.doesNotMatch(warehouse, /\.svg\b|warehouse_wh1_bin_map_high_quality\.svg/i);
 });
 
-test('warehouse built output keeps the public boundary after an isolated build', async () => {
+test('warehouse source and built boundaries centrally reject restricted disclosure, sensitive details, and SVGs', async () => {
   await execFileAsync(process.execPath, ['scripts/build.mjs'], { cwd: repositoryRoot });
+  const [sourceEntries, builtEntries] = await Promise.all([
+    readWarehouseBoundaryEntries(repositoryRoot),
+    readWarehouseBoundaryEntries(repositoryRoot, { built: true })
+  ]);
   const builtWarehouse = await readFile(path.join(repositoryRoot, 'dist', 'projects', 'warehouse-optimization', 'index.html'), 'utf8');
-  const prohibitedOperationalContent = /(?:\.svg\b|\b222\b|\b26 bins\b|\bWH\d+\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg|raw\s+sap\s+(?:records?|data)|(?:facility|internal)\s+(?:label|bin|record|identifier)|(?:operator|employee|personnel)\s+(?:name|id)|(?:material number|inventory record)\s*[:|])/i;
   const outputPaths = [...builtWarehouse.matchAll(/\/assets\/evidence\/optimized\/warehouse\/warehouse-optimization-verified-result-(?:720|1200|1800)w\.(?:avif|webp)/g)]
     .map((match) => match[0])
     .sort();
@@ -111,16 +117,9 @@ test('warehouse built output keeps the public boundary after an isolated build',
     '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1800w.webp'
   ].sort();
 
-  assert.doesNotMatch(builtWarehouse, prohibitedOperationalContent);
+  assertWarehouseDisclosureEntries(sourceEntries);
+  assertWarehouseDisclosureEntries(builtEntries);
   assert.deepEqual([...new Set(outputPaths)], expectedPaths);
-  assert.throws(
-    () => assert.doesNotMatch(`${builtWarehouse}\nJ01`, prohibitedOperationalContent),
-    /J01/
-  );
-  assert.throws(
-    () => assert.doesNotMatch(`${builtWarehouse}\n<img src="/assets/evidence/warehouse-raw-map.svg">`, prohibitedOperationalContent),
-    /warehouse-raw-map\.svg/
-  );
   assert.throws(
     () => assert.deepEqual(
       [...new Set([...builtWarehouse.replaceAll('1800w.webp', '1600w.webp').matchAll(/\/assets\/evidence\/optimized\/warehouse\/warehouse-optimization-verified-result-(?:720|1200|1800)w\.(?:avif|webp)/g)]
@@ -129,6 +128,48 @@ test('warehouse built output keeps the public boundary after an isolated build',
       expectedPaths
     ),
     /strictly deep-equal/
+  );
+
+  for (const restrictedCount of ['222', '+222', '26', '+26', '26 positions', '26 bins']) {
+    assert.throws(
+      () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/mutation.html', content: restrictedCount }]),
+      /restricted warehouse counts/
+    );
+  }
+  for (const permittedNumber of ['1222', '226', 'warehouse26alpha']) {
+    assert.doesNotThrow(
+      () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/permitted.html', content: permittedNumber }])
+    );
+  }
+  for (const sensitiveDetail of [
+    'raw SAP records',
+    'raw records',
+    'confidential roster',
+    'confidential data',
+    'facility address',
+    'facility identifier',
+    'personnel name',
+    'personnel email',
+    'internal bin ID',
+    'J01',
+    'credential',
+    'API key',
+    'secret',
+    'token',
+    'password'
+  ]) {
+    assert.throws(
+      () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/mutation.html', content: sensitiveDetail }]),
+      /sensitive warehouse details/
+    );
+  }
+  assert.throws(
+    () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'assets/css/projects/warehouse.css', content: '.warehouse-result { background-image: url("/assets/evidence/raw.svg"); }' }]),
+    /must not reference SVG evidence/
+  );
+  assert.throws(
+    () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'assets/evidence/optimized/warehouse/copied-raw.svg' }]),
+    /must not be an SVG file/
   );
 });
 

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { assertWarehouseDisclosureEntries } from './warehouse-boundary.mjs';
 
 const publicDocuments = [
   '../index.html',
@@ -50,7 +51,6 @@ function assertWarehouseDisclosure(markup) {
     { label: 'one verified run', pattern: /This result belongs to one verified run/i, text: 'This result belongs to one verified run' },
     { label: 'separate historical analysis', pattern: /not combined with a separate historical analysis/i, text: 'not combined with a separate historical analysis' }
   ];
-  const prohibitedOperationalContent = /(?:\b222\b|\b26 bins\b|\bWH\d+\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg|raw\s+sap\s+(?:records?|data)|(?:facility|internal)\s+(?:label|bin|record|identifier)|(?:operator|employee|personnel)\s+(?:name|id)|(?:material number|inventory record)\s*[:|])/i;
 
   assert.deepEqual(headings, expectedHeadings);
   assert.deepEqual(technologyItems, ['Deterministic rules', 'Data transformation', 'Verification workflow']);
@@ -60,9 +60,9 @@ function assertWarehouseDisclosure(markup) {
   }
   assert.match(visibleText, /REWORK-verified/i);
   assert.equal((markup.match(/<a\b[^>]*\bhref=["']https?:\/\//gi) ?? []).length, 0, 'warehouse route must not invent external credential anchors');
-  assert.doesNotMatch(markup, prohibitedOperationalContent);
+  assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/index.html', content: markup }]);
 
-  return { expectedHeadings, prohibitedOperationalContent, requiredBoundaryStatements };
+  return { expectedHeadings, requiredBoundaryStatements };
 }
 
 const approvedPpkVisibleContent = [
@@ -151,7 +151,7 @@ test('warehouse optimization publishes its verified result without exposing oper
 
 test('warehouse route keeps its complete decision boundary and generic technology disclosure', async () => {
   const warehouse = await readFile(new URL('../projects/warehouse-optimization/index.html', import.meta.url), 'utf8');
-  const { expectedHeadings, prohibitedOperationalContent, requiredBoundaryStatements } = assertWarehouseDisclosure(warehouse);
+  const { expectedHeadings, requiredBoundaryStatements } = assertWarehouseDisclosure(warehouse);
 
   assert.throws(
     () => assert.deepEqual(
@@ -184,8 +184,8 @@ test('warehouse route keeps its complete decision boundary and generic technolog
     /must not invent external credential anchors/
   );
   assert.throws(
-    () => assert.doesNotMatch(`${warehouse}\nWH1`, prohibitedOperationalContent),
-    /WH1/
+    () => assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/mutation.html', content: `${warehouse}\nWH1` }]),
+    /sensitive warehouse details/
   );
 });
 

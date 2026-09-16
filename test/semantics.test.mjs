@@ -9,6 +9,7 @@ const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
 const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
 const ppkUrl = new URL('../projects/ppk076/index.html', import.meta.url);
 const ppkCssUrl = new URL('../assets/css/projects/ppk076.css', import.meta.url);
+const warehouseCssUrl = new URL('../assets/css/projects/warehouse.css', import.meta.url);
 const expectedWorkModifiers = [
   'work-piece--ppk',
   'work-piece--warehouse',
@@ -653,6 +654,18 @@ test('PPK076 matched comparison frames share one aspect and presentation contrac
   assert.equal(image.get('height'), '100%');
   assert.equal(image.get('object-fit'), 'cover');
   assert.equal(image.get('object-position'), '50% 50%');
+});
+
+test('warehouse styles reflow the title and decision-flow labels at a true 320-pixel breakpoint', async () => {
+  const rules = parseCssRules(await readFile(warehouseCssUrl, 'utf8'));
+  const narrowestRules = rules.filter((rule) => rule.atRules.some((atRule) => /^@media\s*\(\s*max-width\s*:\s*22rem\s*\)$/i.test(atRule)));
+  const title = effectiveExactDeclarations(narrowestRules, '.warehouse-page .project-header .display');
+  const flowRow = effectiveExactDeclarations(narrowestRules, '.warehouse-flow li');
+
+  assert.match(title.get('font-size') ?? '', /^clamp\(/, 'warehouse title needs a narrow reflow scale');
+  assert.equal(title.get('max-width'), '100%');
+  assert.equal(title.get('overflow-wrap'), 'anywhere');
+  assert.equal(flowRow.get('grid-template-columns'), '1fr');
 });
 
 test('narrow-screen styles give every current link control a 44-pixel touch target', async () => {
