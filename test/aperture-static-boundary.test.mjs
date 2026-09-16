@@ -139,7 +139,7 @@ function assertResponsiveEvidenceShape(figureBody, provenance) {
   const images = openingTags(figureBody, 'img');
   const pictures = [...figureBody.matchAll(/<picture\b[^>]*>([\s\S]*?)<\/picture>/gi)];
 
-  assert.equal(images.length, 7, 'aperture must retain its approved seven-image evidence set');
+  assert.equal(images.length, 8, 'aperture must retain its approved eight-image evidence set, including the PythOS hard-cut pair');
   for (const picture of pictures) assert.match(picture[1], /<img\b/i, 'every aperture picture must contain an image fallback');
   for (const { attributes, tagName } of media) {
     const candidates = responsiveCandidates(attributes);

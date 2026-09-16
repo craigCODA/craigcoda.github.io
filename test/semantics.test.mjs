@@ -379,7 +379,10 @@ test('aperture publishes the six authored evidence states without carousel contr
     ['assets/evidence/optimized/warehouse/warehouse-optimization-verified-result'],
     ['assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map'],
     ['assets/evidence/optimized/workspace/workspace_m2a_room_checkpoint'],
-    ['assets/evidence/optimized/pythos/pythos_physical_evidence_terminal'],
+    [
+      'assets/evidence/optimized/pythos/pythos_physical_evidence_terminal',
+      'assets/evidence/optimized/pythos/pythos-architecture-evidence-boundary'
+    ],
     []
   ];
   for (const [index, images] of frameImages.entries()) {
