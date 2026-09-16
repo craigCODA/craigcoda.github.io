@@ -6,6 +6,7 @@ const indexUrl = new URL('../index.html', import.meta.url);
 const baseCssUrl = new URL('../assets/css/base.css', import.meta.url);
 const tokensCssUrl = new URL('../assets/css/tokens.css', import.meta.url);
 const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
+const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
 const textLinkDocuments = [
   '../404.html',
   '../projects/ppk076/index.html',
@@ -152,6 +153,55 @@ function assertNoAlternateSkipLinkTransforms(rules) {
     .filter((selector) => /\.skip-link\b/.test(selector) && !permittedSelectors.has(selector));
 
   assert.deepEqual(alternateSelectors, [], 'skip-link transforms must use a permitted exact selector');
+}
+
+function sectionBody(markup, id) {
+  const opening = new RegExp(`<section\\b[^>]*\\bid=["']${id}["'][^>]*>`, 'i').exec(markup);
+
+  assert.ok(opening, `homepage must include #${id}`);
+  const tags = new RegExp('</?section\\b[^>]*>', 'gi');
+  tags.lastIndex = opening.index;
+  let depth = 0;
+  let tag;
+
+  while ((tag = tags.exec(markup))) {
+    depth += tag[0].startsWith('</') ? -1 : 1;
+    if (depth === 0) return markup.slice(opening.index + opening[0].length, tag.index);
+  }
+
+  throw new Error(`#${id} must have a closing section tag`);
+}
+
+function articles(markup) {
+  return [...markup.matchAll(/(<article\b[^>]*>)([\s\S]*?)<\/article>/gi)]
+    .map((match) => ({ attributes: parseAttributes(match[1]), body: match[2] }));
+}
+
+function responsiveFallback(attrs) {
+  const src = attrs.get('src') ?? '';
+  const match = src.match(/^\/(assets\/evidence\/optimized\/.+)-(\d+)w\.webp$/);
+
+  assert.ok(match, `${src || '<missing src>'} must be a registered responsive WebP fallback`);
+  return { src, stem: match[1], width: Number(match[2]) };
+}
+
+function assertEvidenceImage(attrs, provenance) {
+  const fallback = responsiveFallback(attrs);
+  const evidence = provenance.get(fallback.stem);
+
+  assert.ok(evidence, `${fallback.stem} must be registered evidence`);
+  assert.equal(attrs.get('alt'), evidence.alt, `${fallback.src} must use the registered alt text`);
+  assert.equal(attrs.get('width'), String(evidence.sourceWidth), `${fallback.src} must declare its source width`);
+  assert.equal(attrs.get('height'), String(evidence.sourceHeight), `${fallback.src} must declare its source height`);
+  assert.equal(evidence.widths.includes(fallback.width), true, `${fallback.src} must use a declared responsive width`);
+  assert.equal(attrs.get('decoding'), 'async', `${fallback.src} must decode asynchronously`);
+  assert.equal(attrs.get('loading'), 'lazy', `${fallback.src} is below the opening and aperture, so it must lazy-load`);
+
+  return fallback.stem;
+}
+
+function hasSelector(rule, selector) {
+  return rule.selectors.includes(selector);
 }
 
 test('homepage exposes one accessible publication shell', async () => {
@@ -305,4 +355,155 @@ test('homepage major sections resolve to 160–240 pixel fluid editorial gaps', 
       `${selector} must consume the fluid major-section gap`
     );
   }
+});
+
+test('work is exactly five semantic evidence articles bound to their routes and registered output stems', async () => {
+  const [html, provenance] = await Promise.all([
+    readFile(indexUrl, 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse)
+  ]);
+  const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const expectedProjects = [
+    {
+      route: '/projects/ppk076/',
+      modifier: 'work-piece--ppk',
+      stems: [
+        'assets/evidence/optimized/ppk076/ppk076_first_person_forklift',
+        'assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import',
+        'assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import'
+      ]
+    },
+    {
+      route: '/projects/warehouse-optimization/',
+      modifier: 'work-piece--warehouse',
+      stems: ['assets/evidence/optimized/warehouse/warehouse-optimization-verified-result']
+    },
+    {
+      route: '/projects/skill-evaluation-lab/',
+      modifier: 'work-piece--skill',
+      stems: ['assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map']
+    },
+    {
+      route: '/projects/workspace-environment-vnext/',
+      modifier: 'work-piece--workspace',
+      stems: ['assets/evidence/optimized/workspace/workspace_m2a_room_checkpoint']
+    },
+    {
+      route: '/projects/pythos/',
+      modifier: 'work-piece--pythos',
+      stems: ['assets/evidence/optimized/pythos/pythos_physical_evidence_terminal']
+    }
+  ];
+  const workArticles = articles(sectionBody(html, 'work'));
+
+  assert.equal(workArticles.length, 5, '#work must contain exactly five semantic project articles');
+  assert.equal(new Set(expectedProjects.map(({ modifier }) => modifier)).size, expectedProjects.length);
+
+  for (const expected of expectedProjects) {
+    const article = workArticles.find(({ attributes }) => attributeTokens(attributes, 'class').has(expected.modifier));
+
+    assert.ok(article, `#work must include the ${expected.modifier} composition`);
+    assert.match(article.body, new RegExp(`<a\\b[^>]*\\bhref=["']${expected.route}["']`, 'i'));
+    assert.deepEqual(
+      openingTags(article.body, 'img').map(({ attributes }) => assertEvidenceImage(attributes, registeredEvidence)).sort(),
+      expected.stems.slice().sort(),
+      `${expected.modifier} must use its expected registered evidence output stem(s)`
+    );
+  }
+});
+
+test('every homepage evidence image resolves to provenance with its registered intrinsic contract', async () => {
+  const [html, provenance] = await Promise.all([
+    readFile(indexUrl, 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse)
+  ]);
+  const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const images = openingTags(html, 'img');
+
+  assert.equal(images.length, 7, 'homepage evidence should remain the selected seven-image set');
+  for (const { attributes } of images) assertEvidenceImage(attributes, registeredEvidence);
+});
+
+test('VERIFIED WORK contains its exact editorial heading and operational authority evidence', async () => {
+  const html = await readFile(indexUrl, 'utf8');
+  const verifiedWork = sectionBody(html, 'verified-work');
+  const rows = [...verifiedWork.matchAll(/<div\b[^>]*\bclass=["'][^"']*\bverification-row\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi)]
+    .map((match) => match[1].replace(/\s+/g, ' ').trim());
+
+  assert.match(verifiedWork, /<h2\b[^>]*\bid=["']verified-work-title["'][^>]*>\s*VERIFIED WORK\s*<\/h2>/i);
+  assert.equal(rows.length, 2, 'VERIFIED WORK must use two editorial evidence rows');
+  assert.match(rows[0], /PPK076 \+ warehouse decision support/i);
+  assert.match(rows[0], /176 pallet positions recovered/i);
+  assert.match(rows[0], /22 storage bins freed/i);
+  assert.match(rows[0], /deterministic rule boundary/i);
+  assert.match(rows[0], /human verification authority/i);
+  assert.match(rows[1], /Systems \/ PythOS/i);
+});
+
+test('homepage styles preserve asymmetric editorial compositions without generic card treatment', async () => {
+  const [html, homeCss] = await Promise.all([readFile(indexUrl, 'utf8'), readFile(homeCssUrl, 'utf8')]);
+  const rules = parseCssRules(homeCss);
+  const desktopRules = rules.filter((rule) => rule.atRules.length === 0);
+  const narrowRules = rules.filter(isRequiredNarrowMediaRule);
+  const compositionSelectors = [
+    '.work-piece--ppk',
+    '.work-piece--warehouse',
+    '.work-piece--skill',
+    '.work-piece--workspace',
+    '.work-piece--pythos'
+  ];
+
+  for (const selector of compositionSelectors) {
+    assert.match(effectiveExactDeclarations(desktopRules, selector).get('grid-template-columns') ?? '', /minmax\(/, `${selector} must keep its desktop split composition`);
+    assert.equal(effectiveExactDeclarations(narrowRules, selector).get('grid-template-columns'), '1fr', `${selector} must stack as one column on narrow screens`);
+  }
+
+  assert.match(effectiveExactDeclarations(desktopRules, '.work-piece--ppk .work-piece__copy').get('padding-top') ?? '', /clamp\(/);
+  assert.match(effectiveExactDeclarations(desktopRules, '.work-piece--skill .work-piece__copy').get('padding-top') ?? '', /clamp\(/);
+  assert.equal(effectiveExactDeclarations(desktopRules, '.work-piece--pythos').get('margin-inline'), 'calc(var(--gutter) * -1)');
+  assert.equal(effectiveExactDeclarations(desktopRules, '.work-piece--pythos').get('background'), 'var(--charcoal)');
+
+  const workPieceBackgrounds = rules
+    .filter((rule) => rule.selectors.some((selector) => /^\.work-piece--/.test(selector)))
+    .filter((rule) => hasDeclaration(rule, 'background'));
+  assert.deepEqual(workPieceBackgrounds.flatMap((rule) => rule.selectors).filter((selector) => /^\.work-piece--/.test(selector)), ['.work-piece--pythos']);
+  assert.equal(/\bcard\b/i.test(html), false, 'homepage markup must not introduce generic card classes');
+  assert.equal(/box-shadow\s*:/i.test(homeCss), false, 'homepage must not use card shadows');
+  assert.equal(/(?:linear|radial|conic)-gradient\s*\(/i.test(homeCss), false, 'homepage must not use gradients');
+  assert.equal(/border-radius\s*:/i.test(homeCss), false, 'homepage must not use rounded-card treatment');
+});
+
+test('homepage evidence contracts reject targeted fixture mutations', async () => {
+  const [html, homeCss, provenance] = await Promise.all([
+    readFile(indexUrl, 'utf8'),
+    readFile(homeCssUrl, 'utf8'),
+    readFile(provenanceUrl, 'utf8').then(JSON.parse)
+  ]);
+  const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
+  const missingPythosModifier = html.replace('work-piece--pythos', 'work-piece--removed');
+  const eagerBelowFoldImage = html.replace('loading="lazy"', 'loading="eager"');
+  const renamedVerificationHeading = html.replace('VERIFIED WORK', 'VERIFIED SUMMARY');
+  const lightPythosBand = homeCss.replace('background: var(--charcoal)', 'background: var(--paper)');
+  const gradientHomepage = `${homeCss}\n.opening { background: linear-gradient(red, blue); }`;
+
+  assert.throws(
+    () => assert.ok(articles(sectionBody(missingPythosModifier, 'work')).some(({ attributes }) => attributeTokens(attributes, 'class').has('work-piece--pythos'))),
+    /work-piece--pythos/
+  );
+  assert.throws(
+    () => assertEvidenceImage(openingTags(eagerBelowFoldImage, 'img')[0].attributes, registeredEvidence),
+    /must lazy-load/
+  );
+  assert.throws(
+    () => assert.match(sectionBody(renamedVerificationHeading, 'verified-work'), /<h2\b[^>]*>\s*VERIFIED WORK\s*<\/h2>/i),
+    /VERIFIED WORK/
+  );
+  assert.throws(
+    () => assert.equal(effectiveExactDeclarations(parseCssRules(lightPythosBand), '.work-piece--pythos').get('background'), 'var(--charcoal)'),
+    /Expected values to be strictly equal/
+  );
+  assert.throws(
+    () => assert.equal(/(?:linear|radial|conic)-gradient\s*\(/i.test(gradientHomepage), false),
+    /Expected values to be strictly equal/
+  );
 });
