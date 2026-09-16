@@ -141,7 +141,7 @@
   padding-top: clamp(2rem, 5vw, 5rem);
 }
 
-@media (max-width: 52rem) {
+@media (max-width: 54rem) {
   .skill-lab-architecture,
   .skill-lab-evidence,
   .skill-lab-result-layout {

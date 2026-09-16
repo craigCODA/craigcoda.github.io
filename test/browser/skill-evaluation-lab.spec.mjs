@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 const skillLabRoute = '/projects/skill-evaluation-lab/';
-const intermediateWidths = [673, 720, 768];
+const intermediateWidths = [673, 720, 768, 834, 858];
 
 function capturePageErrors(page) {
   const errors = [];
