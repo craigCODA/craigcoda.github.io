@@ -146,9 +146,11 @@ test('warehouse source and built boundaries centrally reject restricted disclosu
     'raw records',
     'confidential roster',
     'confidential data',
+    'confidential: data',
     'facility address',
     'facility identifier',
     'facility label',
+    'facility: label',
     'internal label',
     'internal record',
     'operator name',
@@ -156,6 +158,7 @@ test('warehouse source and built boundaries centrally reject restricted disclosu
     'personnel name',
     'personnel email',
     'personnel ID',
+    'personnel: ID',
     'internal bin ID',
     'J01',
     'material number: 12345',
@@ -171,6 +174,20 @@ test('warehouse source and built boundaries centrally reject restricted disclosu
     assert.throws(
       () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/mutation.html', content: sensitiveDetail }]),
       /sensitive warehouse details/
+    );
+  }
+  for (const permittedDetail of [
+    'confidential',
+    'facility',
+    'personnel',
+    'confidential information is handled carefully',
+    'facility planning remains under review',
+    'personnel participated in the review',
+    'material number',
+    'inventory record'
+  ]) {
+    assert.doesNotThrow(
+      () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/permitted.html', content: permittedDetail }])
     );
   }
   assert.throws(
