@@ -41,11 +41,23 @@ test('legacy Pages source audit rejects an unclassified tracked path', async (co
   assert.match(result.stderr, /notes\/private\.txt: tracked path is not classified for legacy Pages/);
 });
 
-test('legacy Pages source audit rejects restricted text in a classified development file', async (context) => {
+test('legacy Pages source audit rejects synthetic unapproved warehouse claims in a classified development file', async (context) => {
+  const syntheticPositionCount = 900_003;
+  const syntheticBinCount = 800_002;
   const restrictedClaims = [
-    `Historical warehouse result: +${111 * 2} pallet positions.`,
-    `Historical warehouse result: ${13 * 2} bins.`,
-    `Historical warehouse result: +${111 * 2} / ${13 * 2}.`
+    `Synthetic warehouse result: ${syntheticPositionCount} pallet positions recovered.`,
+    `Synthetic warehouse result: ${syntheticBinCount} storage bins freed.`,
+    `Synthetic warehouse result: ${syntheticPositionCount} / ${syntheticBinCount}.`,
+    `Pallet positions recovered: ${syntheticPositionCount}.`,
+    `Storage bins freed: ${syntheticBinCount}.`,
+    `Historical result: ${syntheticPositionCount} / ${syntheticBinCount}.`,
+    `Synthetic claim: ${syntheticPositionCount} and ${syntheticBinCount}.`,
+    `Pallet positions recovered were ${syntheticPositionCount}.`,
+    `Storage bins freed were ${syntheticBinCount}.`,
+    `${900_024} pallet positions.`,
+    `${800_025} bins.`,
+    `Recovered pallet positions: ${900_026}.`,
+    `Freed storage bins: ${800_027}.`
   ];
 
   for (const restrictedClaim of restrictedClaims) {
@@ -55,6 +67,15 @@ test('legacy Pages source audit rejects restricted text in a classified developm
     assert.equal(result.code, 1, result.stderr);
     assert.match(result.stderr, /README\.md: restricted warehouse counts/);
   }
+});
+
+test('legacy Pages source audit permits only the approved public warehouse result phrases', async (context) => {
+  const root = await createTrackedFixture(context, {
+    'README.md': 'Verified result: 176   PALLET POSITIONS RECOVERED and 22 storage bins freed.'
+  });
+  const result = await runAudit(root);
+
+  assert.equal(result.code, 0, result.stderr);
 });
 
 test('legacy Pages source audit rejects an unsafe file type inside a classified tree', async (context) => {
@@ -193,15 +214,32 @@ test('legacy Pages source audit rejects safe references combined with literal as
   assert.deepEqual(accepted, []);
 });
 
-test('legacy Pages source audit rejects the historical positions-recovered claim without a plus or pallet qualifier', async (context) => {
-  const historicalClaim = `${111 * 2} positions recovered`;
+test('legacy Pages source audit rejects a synthetic unapproved positions-recovered claim without a pallet qualifier', async (context) => {
+  const syntheticClaim = `${900_003} positions recovered`;
   const root = await createTrackedFixture(context, {
-    'README.md': `Historical warehouse result: ${historicalClaim}.`
+    'README.md': `Synthetic warehouse result: ${syntheticClaim}.`
   });
   const result = await runAudit(root);
 
   assert.equal(result.code, 1, result.stderr);
   assert.match(result.stderr, /README\.md: restricted warehouse counts/);
+});
+
+test('legacy Pages source audit rejects reconstructed warehouse disclosure constants', async (context) => {
+  const reconstructedCountName = ['historical', 'Warehouse', 'Positions'].join('');
+  const reconstructedMapName = ['excluded', 'Warehouse', 'Map'].join('');
+  const fixtures = [
+    `const ${reconstructedCountName} = ${450_000} * 2;`,
+    `const ${reconstructedMapName} = ['warehouse', '_synthetic-zone-', ${900_004}, '.svg'].join('');`
+  ];
+
+  for (const content of fixtures) {
+    const root = await createTrackedFixture(context, { 'README.md': content });
+    const result = await runAudit(root);
+
+    assert.equal(result.code, 1, result.stderr);
+    assert.match(result.stderr, /README\.md: warehouse disclosure reconstruction/);
+  }
 });
 
 test('legacy Pages source audit permits design-token terminology in development prose', async (context) => {
@@ -223,8 +261,17 @@ test('legacy Pages source audit permits generic SVG test syntax in development f
   assert.equal(result.code, 0, result.stderr);
 });
 
+test('legacy Pages source audit does not treat CSS position properties as warehouse claims', async (context) => {
+  const root = await createTrackedFixture(context, {
+    'assets/css/aperture.css': '.evidence { object-position: 18% center; }'
+  });
+  const result = await runAudit(root);
+
+  assert.equal(result.code, 0, result.stderr);
+});
+
 test('legacy Pages source audit rejects an internal warehouse label in development text', async (context) => {
-  const internalLabel = `J${String(1).padStart(2, '0')}`;
+  const internalLabel = `J${900_005}`;
   const root = await createTrackedFixture(context, {
     'README.md': `Do not disclose internal warehouse location ${internalLabel}.`
   });
@@ -236,8 +283,8 @@ test('legacy Pages source audit rejects an internal warehouse label in developme
 
 test('legacy Pages source audit rejects lowercase internal warehouse labels', async (context) => {
   const internalLabels = [
-    ['j', String(1).padStart(2, '0')].join(''),
-    ['w', 'h', 1].join('')
+    `j${900_006}`,
+    `wh${900_007}`
   ];
 
   for (const internalLabel of internalLabels) {
@@ -251,12 +298,12 @@ test('legacy Pages source audit rejects lowercase internal warehouse labels', as
   }
 });
 
-test('legacy Pages source audit rejects known warehouse labels delimited by underscores', async (context) => {
+test('legacy Pages source audit rejects generic warehouse labels delimited by underscores', async (context) => {
   const embeddedLabels = [
-    ['location', ['j', String(1).padStart(2, '0')].join('')].join('_'),
-    ['warehouse', ['w', 'h', 1].join(''), 'record'].join('_')
+    ['location', `j${900_008}`].join('_'),
+    ['warehouse', `wh${900_009}`, 'record'].join('_')
   ];
-  const quotedLabel = ['_', 'w', 'h', 1].join('');
+  const quotedLabel = `_wh${900_010}`;
   const fixtures = [
     ...embeddedLabels.map((label) => `Do not disclose internal warehouse location ${label}.`),
     `const location = ${JSON.stringify(quotedLabel)};`,
@@ -316,7 +363,7 @@ test('legacy Pages source audit permits non-value secret references and placehol
 });
 
 test('legacy Pages source audit permits an unrelated development semantic version', async (context) => {
-  const version = [1, 0, 13 * 2].join('.');
+  const version = '1.0.42';
   const root = await createTrackedFixture(context, {
     'README.md': `Current development package version: ${version}.`
   });

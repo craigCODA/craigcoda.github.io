@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { assertWarehouseDisclosureEntries } from './warehouse-boundary.mjs';
+import {
+  assertWarehouseDisclosureEntries,
+  hasUnapprovedWarehouseClaim,
+  warehouseSvgReferencePattern
+} from './warehouse-boundary.mjs';
 
 const publicDocuments = [
   '../index.html',
@@ -12,18 +16,7 @@ const publicDocuments = [
   '../projects/workspace-environment-vnext/index.html',
   '../projects/pythos/index.html'
 ];
-const deprecatedPalletResult = String(111 * 2);
-const deprecatedBinResult = String(13 * 2);
-const internalFacilityLabel = ['WH', '1'].join('');
-const excludedWarehouseMap = ['warehouse', '_w', 'h', 1, '_bin_map_high_quality', '.svg'].join('');
-const deprecatedDisclosurePattern = new RegExp(
-  `\\+?${deprecatedPalletResult}\\b|\\b${deprecatedBinResult} (?:storage )?bins\\b`,
-  'i'
-);
-const operationalIdentifierPattern = new RegExp(
-  `(?:\\b${deprecatedPalletResult}\\b|\\b${deprecatedBinResult} bins\\b|\\b${internalFacilityLabel}\\b|\\bJ\\d{2}\\b|${excludedWarehouseMap.replaceAll('.', '\\.')})`,
-  'i'
-);
+const warehouseInternalLabelPattern = /(?<![\p{L}\p{N}])(?:WH\d+|J\d+)(?![\p{L}\p{N}])/iu;
 
 function ppkVisibleText(markup) {
   return markup
@@ -36,13 +29,11 @@ function ppkVisibleText(markup) {
 }
 
 function assertNoPpkVisibleMetrics(text) {
-  const metricPattern = new RegExp(
-    `(?<![\\p{L}\\p{N}])(176|22|${deprecatedPalletResult}|${deprecatedBinResult})(?![\\p{L}\\p{N}])`,
-    'gu'
-  );
+  const metricPattern = /(?<![\p{L}\p{N}])(176|22)(?![\p{L}\p{N}])/gu;
   const metrics = [...text.matchAll(metricPattern)].map((match) => match[1]);
 
   assert.deepEqual(metrics, [], `PPK visible text must not publish warehouse metrics: ${metrics.join(', ')}`);
+  assert.equal(hasUnapprovedWarehouseClaim(text), false, 'PPK visible text must not publish alternate warehouse-result claims');
 }
 
 function assertWarehouseDisclosure(markup) {
@@ -152,11 +143,17 @@ test('PPK076 describes the supported local boundary without exposing inventory r
   assertNoPpkVisibleMetrics(visibleText);
   assert.doesNotMatch(visibleText, /(?:material number|storage bin|inventory record)\s*[:|]/i);
 
-  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 176 positions`), /176/);
-  assert.throws(
-    () => assertNoPpkVisibleMetrics(`${visibleText} 176/22 bins and ${deprecatedPalletResult} positions / ${deprecatedBinResult} bins`),
-    new RegExp(`176, 22, ${deprecatedPalletResult}, ${deprecatedBinResult}`)
-  );
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 176`), /176/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 22`), /22/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} ${900_014} positions recovered`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} pallet positions recovered: ${900_018}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} storage bins freed were ${800_019}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} historical result: ${900_020} / ${800_021}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} synthetic claim: ${900_022} and ${800_023}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} ${900_024} pallet positions`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} ${800_025} bins`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} recovered pallet positions: ${900_026}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} freed storage bins: ${800_027}`), /alternate warehouse-result claims/);
   assert.doesNotThrow(() => assertNoPpkVisibleMetrics(`${visibleText} CRC176F4C6E zone22alpha`));
   assert.doesNotThrow(() => assertNoPpkVisibleMetrics(ppkVisibleText(`${ppk}<script>const metric = 176;</script>`)));
 
@@ -188,10 +185,9 @@ test('warehouse optimization publishes its verified result without exposing oper
     assert.match(visibleText, claim);
   }
 
-  assert.doesNotMatch(
-    visibleText,
-    operationalIdentifierPattern
-  );
+  assert.equal(hasUnapprovedWarehouseClaim(visibleText), false);
+  assert.doesNotMatch(visibleText, warehouseInternalLabelPattern);
+  assert.doesNotMatch(warehouse, warehouseSvgReferencePattern);
 });
 
 test('warehouse route keeps its complete decision boundary and generic technology disclosure', async () => {
@@ -228,9 +224,15 @@ test('warehouse route keeps its complete decision boundary and generic technolog
     () => assertWarehouseDisclosure(warehouse.replace('</main>', '<a href="https://credentials.example.invalid">Credential</a></main>')),
     /must not invent external credential anchors/
   );
+  for (const syntheticInternalLabel of [`WH${900_015}`, `J${900_016}`]) {
+    assert.throws(
+      () => assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/mutation.html', content: `${warehouse}\n${syntheticInternalLabel}` }]),
+      /sensitive warehouse details/
+    );
+  }
   assert.throws(
-    () => assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/mutation.html', content: `${warehouse}\n${internalFacilityLabel}` }]),
-    /sensitive warehouse details/
+    () => assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/mutation.html', content: `${warehouse}\n${900_017} pallet positions recovered` }]),
+    /restricted warehouse counts/
   );
 });
 
@@ -242,7 +244,7 @@ test('homepage publishes only the approved evidence-led claims', async () => {
   assert.match(home, /VERIFIED WORK/);
   assert.match(home, /176 pallet positions recovered/i);
   assert.match(home, /22 storage bins freed/i);
-  assert.doesNotMatch(publicHtml.join('\n'), deprecatedDisclosurePattern);
+  assert.equal(hasUnapprovedWarehouseClaim(publicHtml.join('\n')), false);
   assert.match(home, /313 verification markers/i);
   assert.match(home, /zero drops/i);
   assert.match(home, /176F4C6E/i);

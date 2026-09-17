@@ -583,7 +583,7 @@ test('aperture publishes the six authored evidence states without carousel contr
   const figures = [...aperture.matchAll(/<figure\b([^>]*)>([\s\S]*?)<\/figure>/gi)];
   const expectedFrames = [
     ['4000', 'I MODEL PHYSICAL SYSTEMS.', 'Physical operations, modeled in software.'],
-    ['3500', 'I TURN OPERATIONS INTO DECISION SYSTEMS.', '176 pallet positions recovered. 22 bins freed.'],
+    ['3500', 'I TURN OPERATIONS INTO DECISION SYSTEMS.', '176 pallet positions recovered. 22 storage bins freed.'],
     ['4000', 'I TEST WHAT AGENTS ACTUALLY DO.', 'Agents tested against preserved evidence.'],
     ['4000', 'I RETHINK HOW THE COMPUTER CAN FEEL.', 'Spatial computing, persistent by design.'],
     ['4500', 'I BUILD BELOW THE APPLICATION LAYER.', 'A from-scratch, verification-driven operating system.'],

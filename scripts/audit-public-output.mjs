@@ -7,20 +7,13 @@ import {
   IMAGE_EXTENSIONS,
   PUBLIC_FILE_EXTENSIONS,
   TEXT_EXTENSIONS,
+  hasUnapprovedWarehouseClaim,
   publicSensitiveDetailPattern,
-  warehouseDisclosurePattern,
   warehouseSensitiveDetailPattern,
   warehouseSvgReferencePattern
 } from './public-output-boundaries.mjs';
 import { PROTECTED_FILE_HASHES, SITE_ROUTES } from './site-files.mjs';
 
-const excludedWarehouseSvg = ['warehouse', '_w', 'h', 1, '_bin_map_high_quality', '.svg'].join('');
-const forbiddenText = [
-  ['warehouse SVG filename', excludedWarehouseSvg],
-  ['warehouse map title', ['WH', '1 Bin Location Map'].join('')],
-  ['warehouse restricted count', `+${111 * 2}`],
-  ['warehouse restricted count', new RegExp(`\\b${13 * 2} bins\\b`, 'i')]
-];
 const expectedExternalAnchors = new Map([
   ['index.html', [
     'https://github.com/craigCODA',
@@ -205,11 +198,9 @@ export async function auditPublicOutput(outputRoot) {
   ]));
   for (const { absolutePath, relativePath } of files) {
     const extension = path.extname(relativePath).toLowerCase();
-    if (path.basename(relativePath) === excludedWarehouseSvg) fail(relativePath, 'warehouse SVG filename');
     if (TEXT_EXTENSIONS.has(extension) || relativePath === '.nojekyll') {
       const content = await readFile(absolutePath, 'utf8');
-      for (const [rule, pattern] of forbiddenText) if (typeof pattern === 'string' ? content.includes(pattern) : pattern.test(content)) fail(relativePath, rule);
-      if (warehouseDisclosurePattern.test(content)) fail(relativePath, 'restricted warehouse counts');
+      if (hasUnapprovedWarehouseClaim(content)) fail(relativePath, 'restricted warehouse counts');
       if (publicSensitiveDetailPattern.test(content)) fail(relativePath, 'sensitive warehouse details');
       if (relativePath.includes('warehouse')) {
         if (warehouseSensitiveDetailPattern.test(content)) fail(relativePath, 'sensitive warehouse details');

@@ -5,8 +5,9 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import {
+  hasUnapprovedWarehouseClaim,
   publicSensitiveDetailPattern,
-  warehouseDisclosurePattern,
+  warehouseInternalLabelPattern,
   warehouseSvgReferencePattern
 } from './public-output-boundaries.mjs';
 
@@ -41,23 +42,12 @@ const safeExtensions = {
   development: new Set(['.json', '.md', '.mjs', '.yaml', '.yml']),
   runtime: new Set(['.avif', '.css', '.html', '.jpeg', '.jpg', '.js', '.json', '.png', '.webp'])
 };
-const forbiddenText = [
-  ['warehouse SVG filename', ['warehouse', '_w', 'h', 1, '_bin_map_high_quality', '.svg'].join('')],
-  ['warehouse map title', ['WH', '1 Bin Location Map'].join('')]
-];
-const historicalWarehousePositions = 111 * 2;
-const historicalWarehouseBins = 13 * 2;
-const developmentWarehouseDisclosurePattern = new RegExp(
-  `(?:` +
-    `(?<![\\p{L}\\p{N}+])\\+${historicalWarehousePositions}(?![\\p{L}\\p{N}])|` +
-    `(?<![\\p{L}\\p{N}+])${historicalWarehousePositions}\\s*(?:/|,|and)\\s*\\+?${historicalWarehouseBins}(?![\\p{L}\\p{N}])|` +
-    `(?<![\\p{L}\\p{N}+])\\+?${historicalWarehousePositions}\\s+(?:pallet\\s+positions?|positions?\\s+recovered|locations?)|` +
-    `(?<![\\p{L}\\p{N}+])\\+?${historicalWarehouseBins}\\s+(?:storage\\s+)?bins?` +
-  `)`,
+const developmentSensitiveDetailPattern = /(?:\braw\s+(?:sap(?:\s+(?:records?|data))?|records?|data)\b|\bconfidential(?:\s+|:\s*)(?:roster|data)\b|\bfacility(?:\s+|:\s*)(?:address|identifier|label)\b|\binternal\s+(?:bin(?:\s+(?:id|identifier))?|label|record)\b|\b(?:operator|employee|personnel)(?:\s+|:\s*)(?:name|e-?mail|id)\b|\b(?:material\s+number|inventory\s+record)(?:\s*:\s*\S|\s+\S))/iu;
+const warehouseDisclosureIdentifierSource = String.raw`(?:deprecated|historical|restricted|excluded|internal)[\p{L}\p{N}_]*(?:warehouse|pallet|position|bin|facility|label|map)[\p{L}\p{N}_]*`;
+const developmentWarehouseReconstructionPattern = new RegExp(
+  String.raw`\b(?:const|let|var)\s+${warehouseDisclosureIdentifierSource}\s*=\s*[^;\r\n]*(?:\d[\d_]*\s*[+*/-]\s*\d|\.(?:join|padStart)\s*\()`,
   'iu'
 );
-const warehouseInternalLabelPattern = /(?<![\p{L}\p{N}])(?:WH\d+|J\d+)(?![\p{L}\p{N}])/iu;
-const developmentSensitiveDetailPattern = /(?:\braw\s+(?:sap(?:\s+(?:records?|data))?|records?|data)\b|\bconfidential(?:\s+|:\s*)(?:roster|data)\b|\bfacility(?:\s+|:\s*)(?:address|identifier|label)\b|\binternal\s+(?:bin(?:\s+(?:id|identifier))?|label|record)\b|\b(?:operator|employee|personnel)(?:\s+|:\s*)(?:name|e-?mail|id)\b|\b(?:material\s+number|inventory\s+record)(?:\s*:\s*\S|\s+\S))/iu;
 const sensitiveIdentifierSource = String.raw`(?:api[\s_-]*keys?|credentials?|secrets?|passwords?|tokens?|[\p{L}\p{N}_-]+(?:api[\s_-]*key|credential|secret|password|token)|client[\s_-]*secrets?|access[\s_-]*tokens?|db[\s_-]*passwords?|service[\s_-]*credentials?)`;
 const developmentSecretAssignmentPatterns = [
   new RegExp(String.raw`(?<![\p{L}\p{N}_-])${sensitiveIdentifierSource}(?![\p{L}\p{N}_-])[\t ]*=[\t ]*`, 'gimu'),
@@ -136,17 +126,16 @@ function hasDevelopmentSecretAssignment(content) {
 }
 
 function assertTextBoundaries(relativePath, content, classification) {
-  for (const [rule, forbidden] of forbiddenText) {
-    if (content.includes(forbidden)) fail(relativePath, rule);
-  }
-  const disclosurePattern = classification === 'runtime' ? warehouseDisclosurePattern : developmentWarehouseDisclosurePattern;
-  if (disclosurePattern.test(content)) fail(relativePath, 'restricted warehouse counts');
+  if (hasUnapprovedWarehouseClaim(content)) fail(relativePath, 'restricted warehouse counts');
   const sensitivePattern = classification === 'runtime' ? publicSensitiveDetailPattern : developmentSensitiveDetailPattern;
   if (sensitivePattern.test(content) || warehouseInternalLabelPattern.test(content)) {
     fail(relativePath, 'sensitive warehouse details');
   }
   if (classification === 'development' && hasDevelopmentSecretAssignment(content)) {
     fail(relativePath, 'sensitive credential assignment');
+  }
+  if (classification === 'development' && developmentWarehouseReconstructionPattern.test(content)) {
+    fail(relativePath, 'warehouse disclosure reconstruction');
   }
   if (classification === 'runtime' && relativePath.toLowerCase().includes('warehouse') && warehouseSvgReferencePattern.test(content)) {
     fail(relativePath, 'warehouse SVG reference');

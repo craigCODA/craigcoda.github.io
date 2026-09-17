@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import {
-  warehouseDisclosurePattern,
+  hasUnapprovedWarehouseClaim,
   warehouseSensitiveDetailPattern,
   warehouseSvgReferencePattern
 } from '../scripts/public-output-boundaries.mjs';
 
 const textExtensions = new Set(['.css', '.html', '.js', '.json', '.mjs', '.txt']);
 
-export { warehouseDisclosurePattern, warehouseSensitiveDetailPattern, warehouseSvgReferencePattern };
+export { hasUnapprovedWarehouseClaim, warehouseSensitiveDetailPattern, warehouseSvgReferencePattern };
 
 function displayPath(filePath) {
   return filePath.replaceAll('\\', '/');
@@ -27,7 +27,7 @@ export function assertWarehouseDisclosureEntries(entries) {
     const entryPath = displayPath(entry.path);
     assert.notEqual(path.extname(entryPath).toLowerCase(), '.svg', `${entryPath} must not be an SVG file`);
     if (typeof entry.content !== 'string') continue;
-    assert.doesNotMatch(entry.content, warehouseDisclosurePattern, `${entryPath} must not disclose restricted warehouse counts`);
+    assert.equal(hasUnapprovedWarehouseClaim(entry.content), false, `${entryPath} must not disclose restricted warehouse counts`);
     assert.doesNotMatch(entry.content, warehouseSensitiveDetailPattern, `${entryPath} must not disclose sensitive warehouse details`);
     assert.doesNotMatch(entry.content, warehouseSvgReferencePattern, `${entryPath} must not reference SVG evidence`);
   }

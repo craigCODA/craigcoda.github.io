@@ -8,7 +8,7 @@ const apertureCssUrl = new URL('../assets/css/aperture.css', import.meta.url);
 const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
 const expectedCopy = [
   ['I MODEL PHYSICAL SYSTEMS.', 'Physical operations, modeled in software.'],
-  ['I TURN OPERATIONS INTO DECISION SYSTEMS.', '176 pallet positions recovered. 22 bins freed.'],
+  ['I TURN OPERATIONS INTO DECISION SYSTEMS.', '176 pallet positions recovered. 22 storage bins freed.'],
   ['I TEST WHAT AGENTS ACTUALLY DO.', 'Agents tested against preserved evidence.'],
   ['I RETHINK HOW THE COMPUTER CAN FEEL.', 'Spatial computing, persistent by design.'],
   ['I BUILD BELOW THE APPLICATION LAYER.', 'A from-scratch, verification-driven operating system.'],

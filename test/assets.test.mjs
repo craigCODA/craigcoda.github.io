@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { access, cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -16,8 +16,6 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const evidenceRoot = path.join(repositoryRoot, 'assets', 'evidence');
 const provenancePath = path.join(evidenceRoot, 'provenance.json');
 const execFileAsync = promisify(execFile);
-const excludedWarehouseMap = ['warehouse', '_w', 'h', 1, '_bin_map_high_quality', '.svg'].join('');
-const excludedWarehouseTitle = ['WH', '1 Bin Location Map'].join('');
 const joinPhrase = (...parts) => parts.join(' ');
 
 const approvedSources = [
@@ -89,13 +87,14 @@ test('evidence provenance records are public-safe, complete, and approved', asyn
   }
 });
 
-test('excluded raw warehouse bin map is neither registered nor copied', async () => {
+test('evidence provenance does not register SVG source or output paths', async () => {
   const records = await readProvenance();
-  const excludedSource = `warehouse/${excludedWarehouseMap}`;
 
-  assert.equal(records.some(({ source }) => source === excludedSource), false);
-  await assert.rejects(access(path.join(repositoryRoot, excludedSource)));
-  await assert.rejects(access(path.join(evidenceRoot, 'original', excludedSource)));
+  for (const record of records) {
+    assert.notEqual(path.extname(record.source).toLowerCase(), '.svg');
+    assert.notEqual(path.extname(record.original).toLowerCase(), '.svg');
+    assert.notEqual(path.extname(record.outputStem).toLowerCase(), '.svg');
+  }
 });
 
 test('public-output audit accepts the built allowlist and public evidence contracts', async () => {
@@ -103,16 +102,16 @@ test('public-output audit accepts the built allowlist and public evidence contra
   await execFileAsync(process.execPath, ['scripts/audit-public-output.mjs', 'dist'], { cwd: repositoryRoot });
 });
 
-test('public-output audit rejects warehouse map wording inside a renamed SVG', async (context) => {
+test('public-output audit rejects a generically named warehouse SVG file', async (context) => {
   const fixtureRoot = await createAuditFixture();
   context.after(() => rm(fixtureRoot, { recursive: true, force: true }));
   const renamedSvg = path.join(fixtureRoot, 'assets', 'evidence', 'optimized', 'warehouse', 'public-diagram.svg');
 
-  await writeFile(renamedSvg, `<svg><title>${excludedWarehouseTitle}</title></svg>`);
+  await writeFile(renamedSvg, '<svg><title>Synthetic warehouse diagram</title></svg>');
 
   await assert.rejects(
     auditPublicOutput(fixtureRoot),
-    /assets\/evidence\/optimized\/warehouse\/public-diagram\.svg: warehouse map title/
+    /assets\/evidence\/optimized\/warehouse\/public-diagram\.svg: public file type is not allowlisted/
   );
 });
 
@@ -182,20 +181,31 @@ test('warehouse source and built boundaries centrally reject restricted disclosu
     /strictly deep-equal/
   );
 
-  for (const restrictedCount of [
-    `${111 * 2}`,
-    `+${111 * 2}`,
-    `${13 * 2}`,
-    `+${13 * 2}`,
-    `${13 * 2} positions`,
-    `${13 * 2} bins`
+  const syntheticPositionCount = 900_011;
+  const syntheticBinCount = 800_012;
+  for (const restrictedClaim of [
+    `${syntheticPositionCount} pallet positions recovered`,
+    `${syntheticBinCount} storage bins freed`,
+    `${syntheticPositionCount} positions recovered`,
+    `${syntheticBinCount} bins freed`,
+    `Synthetic warehouse result: ${syntheticPositionCount} / ${syntheticBinCount}`,
+    `pallet positions recovered: ${syntheticPositionCount}`,
+    `storage bins freed: ${syntheticBinCount}`,
+    `historical result: ${syntheticPositionCount} / ${syntheticBinCount}`,
+    `synthetic claim: ${syntheticPositionCount} and ${syntheticBinCount}`,
+    `pallet positions recovered were ${syntheticPositionCount}`,
+    `storage bins freed were ${syntheticBinCount}`,
+    `${900_024} pallet positions`,
+    `${800_025} bins`,
+    `recovered pallet positions: ${900_026}`,
+    `freed storage bins: ${800_027}`
   ]) {
     assert.throws(
-      () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/mutation.html', content: restrictedCount }]),
+      () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/mutation.html', content: restrictedClaim }]),
       /restricted warehouse counts/
     );
   }
-  for (const permittedNumber of ['1222', '226', 'warehouse26alpha']) {
+  for (const permittedNumber of ['1222', '226', 'warehouse-alpha']) {
     assert.doesNotThrow(
       () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/permitted.html', content: permittedNumber }])
     );
@@ -219,7 +229,7 @@ test('warehouse source and built boundaries centrally reject restricted disclosu
     joinPhrase('personnel', 'ID'),
     joinPhrase('personnel:', 'ID'),
     joinPhrase('internal', 'bin', 'ID'),
-    `J${String(1).padStart(2, '0')}`,
+    `J${900_013}`,
     joinPhrase('material', 'number:', '12345'),
     joinPhrase('material', 'number', '12345'),
     joinPhrase('inventory', 'record:', 'ABC'),

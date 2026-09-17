@@ -731,7 +731,7 @@ Expected: PASS with one start, five frame changes, one synthesis hold, and no lo
 Inside `#aperture`, create one `<figure data-aperture>` containing six ordered `<article data-aperture-frame>` elements. Use exact copy and durations:
 
 1. `4000`: `I MODEL PHYSICAL SYSTEMS.` / `Physical operations, modeled in software.`
-2. `3500`: `I TURN OPERATIONS INTO DECISION SYSTEMS.` / `176 pallet positions recovered. 22 bins freed.`
+2. `3500`: `I TURN OPERATIONS INTO DECISION SYSTEMS.` / `176 pallet positions recovered. 22 storage bins freed.`
 3. `4000`: `I TEST WHAT AGENTS ACTUALLY DO.` / `Agents tested against preserved evidence.`
 4. `4000`: `I RETHINK HOW THE COMPUTER CAN FEEL.` / `Spatial computing, persistent by design.`
 5. `4500`: `I BUILD BELOW THE APPLICATION LAYER.` / `A from-scratch, verification-driven operating system.`
