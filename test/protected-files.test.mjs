@@ -21,6 +21,15 @@ test('protected GitHub Pages files retain their approved SHA-256 hashes', async 
   }
 });
 
+test('protected asset links check out with the approved CRLF bytes on every platform', async () => {
+  const attributes = await readFile(new URL('../.gitattributes', import.meta.url), 'utf8').catch((error) => {
+    if (error.code === 'ENOENT') return '';
+    throw error;
+  });
+
+  assert.match(attributes, /^\.well-known\/assetlinks\.json text eol=crlf$/m);
+});
+
 test('.nojekyll remains empty', async () => {
   const contents = await readFile(new URL('../.nojekyll', import.meta.url));
 
