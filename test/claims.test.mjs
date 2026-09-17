@@ -1,0 +1,324 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+import {
+  assertWarehouseDisclosureEntries,
+  hasUnapprovedWarehouseClaim,
+  warehouseSvgReferencePattern
+} from './warehouse-boundary.mjs';
+
+const publicDocuments = [
+  '../index.html',
+  '../404.html',
+  '../projects/ppk076/index.html',
+  '../projects/warehouse-optimization/index.html',
+  '../projects/skill-evaluation-lab/index.html',
+  '../projects/workspace-environment-vnext/index.html',
+  '../projects/pythos/index.html'
+];
+const warehouseInternalLabelPattern = /(?<![\p{L}\p{N}])(?:WH\d+|J\d+)(?![\p{L}\p{N}])/iu;
+
+function ppkVisibleText(markup) {
+  return markup
+    .replace(/<head\b[\s\S]*?<\/head>/gi, '')
+    .replace(/<(?:script|style|template)\b[\s\S]*?<\/(?:script|style|template)>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&(?:amp|nbsp);/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function assertNoPpkVisibleMetrics(text) {
+  const metricPattern = /(?<![\p{L}\p{N}])(176|22)(?![\p{L}\p{N}])/gu;
+  const metrics = [...text.matchAll(metricPattern)].map((match) => match[1]);
+
+  assert.deepEqual(metrics, [], `PPK visible text must not publish warehouse metrics: ${metrics.join(', ')}`);
+  assert.equal(hasUnapprovedWarehouseClaim(text), false, 'PPK visible text must not publish alternate warehouse-result claims');
+}
+
+function assertWarehouseDisclosure(markup) {
+  const visibleText = ppkVisibleText(markup);
+  const expectedHeadings = [
+    'Problem',
+    'What I built',
+    'Architecture / decisions',
+    'Evidence',
+    'Result',
+    'Technologies',
+    'Current boundary / unfinished work',
+    'Source / demo / verification'
+  ];
+  const headings = [...markup.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  const technologies = markup.match(/<section\b[^>]*\bwarehouse-technologies\b[^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
+  const technologyItems = [...technologies.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)]
+    .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+  const requiredBoundaryStatements = [
+    { label: 'no raw operational dataset', pattern: /No raw operational dataset is published/i, text: 'No raw operational dataset is published.' },
+    { label: 'one verified run', pattern: /This result belongs to one verified run/i, text: 'This result belongs to one verified run' },
+    { label: 'separate historical analysis', pattern: /not combined with a separate historical analysis/i, text: 'not combined with a separate historical analysis' }
+  ];
+
+  assert.deepEqual(headings, expectedHeadings);
+  assert.deepEqual(technologyItems, ['Deterministic rules', 'Data transformation', 'Verification workflow']);
+  assert.doesNotMatch(technologies, /(?:Three\.js|JavaScript|TypeScript|Python|SQL|Node|React|SAP)/i);
+  for (const { label, pattern } of requiredBoundaryStatements) {
+    assert.match(visibleText, pattern, `missing warehouse boundary statement: ${label}`);
+  }
+  assert.match(visibleText, /REWORK-verified/i);
+  assert.equal((markup.match(/<a\b[^>]*\bhref=["']https?:\/\//gi) ?? []).length, 0, 'warehouse route must not invent external credential anchors');
+  assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/index.html', content: markup }]);
+
+  return { expectedHeadings, requiredBoundaryStatements };
+}
+
+function assertWorkspaceClaims(markup) {
+  const visibleText = ppkVisibleText(markup);
+
+  for (const claim of [
+    /saved M2A room checkpoint/i,
+    /placeholder application screen/i,
+    /live generic Windows surface streaming was not complete at this checkpoint/i,
+    /World Core owns durable truth/i,
+    /host-controlled authority/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+
+  assert.match(
+    visibleText,
+    /The large application screen is a placeholder in this saved M2A room checkpoint; live generic Windows surface streaming was not complete at this checkpoint\./
+  );
+  for (const overclaimPattern of [
+    /\b(?:completed?|finished|fully\s+operational|operational|production[- ]ready|working|available)\s+(?:live\s+)?(?:generic\s+)?(?:Windows\s+)?(?:surface\s+)?streaming\b/i,
+    /\b(?:live\s+)?(?:generic\s+)?(?:Windows\s+)?(?:surface\s+)?streaming\s+(?:is|was|became|remains)\s+(?!not\b)(?:complete[d]?|finished|fully\s+operational|operational|production[- ]ready|working|available)\b/i,
+    /\b(?:live\s+)?(?:generic\s+)?(?:Windows\s+)?(?:surface\s+)?streaming\s+(?:has|had)\s+been\s+(?!not\b)(?:completed|finished|fully\s+operational|operational|made\s+available)\b/i
+  ]) {
+    assert.doesNotMatch(visibleText, overclaimPattern, 'Workspace streaming overclaim must be rejected');
+  }
+}
+
+const approvedPpkVisibleContent = [
+  { label: 'physical layout problem', pattern: /physical layout, storage, movement, and training/i },
+  { label: 'disconnected records problem', pattern: /disconnected records/i },
+  { label: 'offline Three.js simulation', pattern: /offline-capable browser-based Three\.js warehouse simulation/i },
+  { label: 'walking and forklift interaction', pattern: /walking and forklift interaction/i },
+  { label: 'camera modes', pattern: /camera modes/i },
+  { label: 'PWA support', pattern: /PWA support/i },
+  { label: 'WebXR browser direction', pattern: /WebXR-compatible browser direction/i },
+  { label: 'Electron packaging', pattern: /Electron packaging/i },
+  { label: 'modeled physical regions', pattern: /physical regions are modeled as regions with meaning/i },
+  { label: 'manual export boundary', pattern: /manual export/i },
+  { label: 'local parsing boundary', pattern: /local parsing/i },
+  { label: 'no SAP return path', pattern: /no SAP return path/i },
+  { label: 'top-down evidence', pattern: /top-down inset/i },
+  { label: 'matched-camera before and after visualization', pattern: /same camera before and after a supported local import visualization/i },
+  { label: 'rack and floor-bin evidence', pattern: /rack positions and floor-bin areas/i },
+  { label: 'operational relationship evidence', pattern: /operational relationship/i },
+  { label: 'security-boundary diagram caption', pattern: /Supported data boundary\./i },
+  { label: 'multisite-build diagram caption', pattern: /reusable facility-build method/i },
+  { label: 'inspectable result', pattern: /inspectable/i },
+  { label: 'Three.js technology', pattern: /Three\.js/i },
+  { label: 'JavaScript technology', pattern: /JavaScript/i },
+  { label: 'CSS technology', pattern: /CSS/i },
+  { label: 'PWA service worker technology', pattern: /PWA and service worker/i },
+  { label: 'Node scripts technology', pattern: /Node build scripts/i },
+  { label: 'decision and training boundary', pattern: /simulation and decision\/training aid/i },
+  { label: 'optional movement capture boundary', pattern: /optional movement capture/i },
+  { label: 'public verification wording', pattern: /public verification surfaces/i }
+];
+
+function assertApprovedPpkVisibleContent(text) {
+  for (const { label, pattern } of approvedPpkVisibleContent) {
+    assert.match(text, pattern, `missing approved PPK visible content: ${label}`);
+  }
+}
+
+test('PPK076 describes the supported local boundary without exposing inventory records or warehouse-optimization results', async () => {
+  const ppk = await readFile(new URL('../projects/ppk076/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(ppk);
+
+  assertApprovedPpkVisibleContent(visibleText);
+
+  assertNoPpkVisibleMetrics(visibleText);
+  assert.doesNotMatch(visibleText, /(?:material number|storage bin|inventory record)\s*[:|]/i);
+
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 176`), /176/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 22`), /22/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} ${900_014} positions recovered`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} pallet positions recovered: ${900_018}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} storage bins freed were ${800_019}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} historical result: ${900_020} / ${800_021}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} synthetic claim: ${900_022} and ${800_023}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} ${900_024} pallet positions`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} ${800_025} bins`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} recovered pallet positions: ${900_026}`), /alternate warehouse-result claims/);
+  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} freed storage bins: ${800_027}`), /alternate warehouse-result claims/);
+  assert.doesNotThrow(() => assertNoPpkVisibleMetrics(`${visibleText} CRC176F4C6E zone22alpha`));
+  assert.doesNotThrow(() => assertNoPpkVisibleMetrics(ppkVisibleText(`${ppk}<script>const metric = 176;</script>`)));
+
+  for (const { label, pattern } of approvedPpkVisibleContent.filter(({ label }) => [
+    'modeled physical regions',
+    'matched-camera before and after visualization',
+    'security-boundary diagram caption',
+    'multisite-build diagram caption',
+    'JavaScript technology',
+    'CSS technology'
+  ].includes(label))) {
+    assert.throws(
+      () => assertApprovedPpkVisibleContent(visibleText.replace(pattern, '')),
+      new RegExp(label)
+    );
+  }
+});
+
+test('warehouse optimization publishes its verified result without exposing operational identifiers', async () => {
+  const warehouse = await readFile(new URL('../projects/warehouse-optimization/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(warehouse);
+
+  for (const claim of [
+    /176 pallet positions recovered/i,
+    /22 storage bins freed/i,
+    /Measured before\/after occupancy/i,
+    /Human verification remained authoritative/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+
+  assert.equal(hasUnapprovedWarehouseClaim(visibleText), false);
+  assert.doesNotMatch(visibleText, warehouseInternalLabelPattern);
+  assert.doesNotMatch(warehouse, warehouseSvgReferencePattern);
+});
+
+test('warehouse route keeps its complete decision boundary and generic technology disclosure', async () => {
+  const warehouse = await readFile(new URL('../projects/warehouse-optimization/index.html', import.meta.url), 'utf8');
+  const { expectedHeadings, requiredBoundaryStatements } = assertWarehouseDisclosure(warehouse);
+
+  assert.throws(
+    () => assert.deepEqual(
+      [...warehouse.replace('Architecture / decisions', 'Architecture').matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/gi)]
+        .map((match) => match[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()),
+      expectedHeadings
+    ),
+    /strictly deep-equal/
+  );
+  assert.throws(
+    () => assert.match(warehouse.replace('REWORK-verified', 'verified'), /REWORK-verified/i),
+    /REWORK-verified/
+  );
+  assert.throws(
+    () => assertWarehouseDisclosure(warehouse.replace('<li>Verification workflow</li>', '<li>JavaScript</li>')),
+    /JavaScript/
+  );
+  assert.throws(
+    () => assertWarehouseDisclosure(warehouse.replace('</ul>', '<li>JavaScript</li></ul>')),
+    /JavaScript/
+  );
+  for (const { label, text } of requiredBoundaryStatements) {
+    assert.throws(
+      () => assertWarehouseDisclosure(warehouse.replace(text, '')),
+      new RegExp(`missing warehouse boundary statement: ${label}`)
+    );
+  }
+  assert.throws(
+    () => assertWarehouseDisclosure(warehouse.replace('</main>', '<a href="https://credentials.example.invalid">Credential</a></main>')),
+    /must not invent external credential anchors/
+  );
+  for (const syntheticInternalLabel of [`WH${900_015}`, `J${900_016}`]) {
+    assert.throws(
+      () => assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/mutation.html', content: `${warehouse}\n${syntheticInternalLabel}` }]),
+      /sensitive warehouse details/
+    );
+  }
+  assert.throws(
+    () => assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/mutation.html', content: `${warehouse}\n${900_017} pallet positions recovered` }]),
+    /restricted warehouse counts/
+  );
+});
+
+test('homepage publishes only the approved evidence-led claims', async () => {
+  const home = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const publicHtml = await Promise.all(publicDocuments.map((document) => readFile(new URL(document, import.meta.url), 'utf8')));
+
+  assert.match(home, /I BUILD SYSTEMS THAT HAVE TO ANSWER TO REALITY\./);
+  assert.match(home, /VERIFIED WORK/);
+  assert.match(home, /176 pallet positions recovered/i);
+  assert.match(home, /22 storage bins freed/i);
+  assert.equal(hasUnapprovedWarehouseClaim(publicHtml.join('\n')), false);
+  assert.match(home, /313 verification markers/i);
+  assert.match(home, /zero drops/i);
+  assert.match(home, /176F4C6E/i);
+  assert.match(home, /target-specific/i);
+});
+
+test('selected PythOS evidence band carries its target-specific metrics', async () => {
+  const home = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const pythosBand = home.match(/<article\b[^>]*class=["'][^"']*\bwork-piece--pythos\b[^"']*["'][^>]*>([\s\S]*?)<\/article>/i)?.[1] ?? '';
+
+  assert.match(pythosBand, /313 verification markers/i);
+  assert.match(pythosBand, /zero drops/i);
+  assert.match(pythosBand, /CRC 176F4C6E/i);
+  assert.match(pythosBand, /target-specific physical evidence/i);
+});
+
+test('PythOS case study separates its documented physical result from universal hardware claims', async () => {
+  const pythos = await readFile(new URL('../projects/pythos/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(pythos);
+
+  for (const claim of [
+    /313 verification markers/i,
+    /zero drops/i,
+    /CRC 176F4C6E/i,
+    /target-specific physical evidence/i,
+    /not a claim of universal hardware support/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+});
+
+test('Skill Evaluation Lab limits behavioral claims to its preserved experimental evidence', async () => {
+  const skillLab = await readFile(new URL('../projects/skill-evaluation-lab/index.html', import.meta.url), 'utf8');
+  const visibleText = ppkVisibleText(skillLab);
+
+  for (const claim of [
+    /Control/i,
+    /Isolate/i,
+    /Compare/i,
+    /Replicate/i,
+    /Verify/i,
+    /preserved failures/i,
+    /SHA-256/i,
+    /experimental/i,
+    /captured saved record/i
+  ]) {
+    assert.match(visibleText, claim);
+  }
+
+  assert.match(skillLab, /href=["']https:\/\/github\.com\/craigCODA\/Skill-Evaluation-Lab["']/i);
+  assert.match(skillLab, /href=["']https:\/\/github\.com\/craigCODA\/Skill-Evaluation-Lab\/releases\/tag\/evidence-0001-0015["']/i);
+  assert.doesNotMatch(visibleText, /\bdashboard\b/i);
+  assert.match(visibleText, /not promoted as general improvements/i);
+  assert.doesNotMatch(visibleText, /candidates? (?:is|are|show|represent) (?:a )?general improvement/i);
+});
+
+test('Workspace Environment vNext states its saved checkpoint and unfinished streaming boundary without overstating capability', async () => {
+  const workspace = await readFile(new URL('../projects/workspace-environment-vnext/index.html', import.meta.url), 'utf8');
+
+  assertWorkspaceClaims(workspace);
+
+  for (const overclaim of [
+    'Windows streaming is complete.',
+    'Fully operational Windows surface streaming.',
+    'Live surface streaming is working.',
+    'Live surface streaming is available.',
+    'Completed live Windows streaming.',
+    'Live generic Windows surface streaming is complete.',
+    'Live Windows surface streaming is operational.',
+    'Production-ready Windows surface streaming.'
+  ]) {
+    assert.throws(
+      () => assertWorkspaceClaims(workspace.replace('</main>', `<p>${overclaim}</p></main>`)),
+      /streaming overclaim/i
+    );
+  }
+});

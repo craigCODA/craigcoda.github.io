@@ -1,0 +1,86 @@
+.project-header {
+  padding-block: clamp(4rem, 10vw, 9rem) clamp(3rem, 7vw, 6rem);
+}
+
+.project-header .eyebrow {
+  margin-bottom: 1.25rem;
+}
+
+.project-header .display {
+  font-size: var(--display-hero);
+  max-width: 15ch;
+}
+
+.project-header .serif-lede {
+  margin-block: 2rem;
+}
+
+.project-section {
+  margin-block-start: clamp(6rem, 12vw, 12rem);
+}
+
+.project-section h2 {
+  margin: 0 0 1.5rem;
+  font-family: var(--font-display);
+  font-size: var(--display-section);
+  letter-spacing: -0.06em;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+.project-section p {
+  max-width: var(--measure);
+  font-size: var(--serif-body);
+  line-height: 1.35;
+}
+
+.evidence-figure {
+  margin: 0;
+}
+
+.evidence-figure picture,
+.evidence-figure img {
+  display: block;
+  width: 100%;
+}
+
+.evidence-figure figcaption {
+  margin-top: 0.75rem;
+  color: var(--muted);
+  font-size: var(--utility);
+  line-height: 1.35;
+}
+
+.fact-list,
+.project-links {
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fact-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
+.fact-list li {
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+}
+
+.boundary-note {
+  max-width: var(--measure);
+  border-left: 0.35rem solid currentColor;
+  padding-left: 1rem;
+}
+
+.boundary-note p {
+  margin: 0;
+}
+
+.project-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+}

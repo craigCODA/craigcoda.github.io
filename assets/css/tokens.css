@@ -1,0 +1,22 @@
+:root {
+  --paper: #f3f0e9;
+  --paper-bright: #fbfaf7;
+  --surface: #ffffff;
+  --ink: #111213;
+  --charcoal: #1b1d1f;
+  --muted: #666962;
+  --line: #d6d3cc;
+  --focus: #111213;
+  --font-display: "Arial Black", Arial, Helvetica, sans-serif;
+  --font-serif: "Times New Roman", Times, serif;
+  --font-sans: Arial, Helvetica, sans-serif;
+  --gutter: clamp(1rem, 5.5vw, 6rem);
+  --measure: 46rem;
+  --page-max: 100rem;
+  --section-space: clamp(10rem, 14vw, 15rem);
+  --display-hero: clamp(2.75rem, 7vw, 6rem);
+  --display-section: clamp(2.125rem, 5vw, 4.5rem);
+  --serif-large: clamp(1.75rem, 3.25vw, 2.625rem);
+  --serif-body: clamp(1.125rem, 1.75vw, 1.625rem);
+  --utility: clamp(0.75rem, 1vw, 0.9375rem);
+}

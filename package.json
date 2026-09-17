@@ -1,0 +1,21 @@
+{
+  "name": "craig-ramos-portfolio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.0.0" },
+  "scripts": {
+    "assets": "node scripts/optimize-images.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "test:browser": "playwright test --workers=1",
+    "audit": "node scripts/audit-public-output.mjs dist",
+    "audit:source": "node scripts/audit-pages-source.mjs .",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs dist --port 4173",
+    "check": "npm run audit:source && npm test && npm run build && npm run test:browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "sharp": "0.35.4"
+  }
+}

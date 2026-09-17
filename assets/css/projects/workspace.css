@@ -1,0 +1,185 @@
+.workspace-page {
+  padding-bottom: clamp(5rem, 12vw, 10rem);
+}
+
+.workspace-problem {
+  margin-left: auto;
+  width: min(100%, 76rem);
+}
+
+.workspace-built {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.72fr) minmax(18rem, 1.28fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: start;
+  border-top: 1px solid var(--line);
+  padding-top: clamp(2rem, 5vw, 5rem);
+}
+
+.workspace-built h2,
+.workspace-built p {
+  margin-top: 0;
+}
+
+.workspace-architecture {
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.78fr) minmax(20rem, 1.22fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: start;
+}
+
+.workspace-architecture-heading {
+  position: sticky;
+  top: 2rem;
+}
+
+.workspace-architecture-heading .serif-lede {
+  margin: 0;
+}
+
+.workspace-authority-flow {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--ink);
+}
+
+.workspace-authority-flow li {
+  display: grid;
+  grid-template-columns: minmax(6.5rem, 0.3fr) minmax(0, 1fr);
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding-block: 1.25rem;
+}
+
+.workspace-authority-flow span,
+.workspace-checkpoint-ledger dt {
+  font-size: var(--utility);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-authority-flow strong {
+  font-family: var(--font-serif);
+  font-size: var(--serif-body);
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.workspace-evidence h2 {
+  max-width: var(--page-max);
+}
+
+.workspace-evidence-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.9fr) minmax(15rem, 0.55fr);
+  gap: clamp(1.5rem, 4vw, 5rem);
+  align-items: start;
+}
+
+.workspace-room-plane img {
+  height: auto;
+}
+
+.workspace-authority-column {
+  margin-top: clamp(3rem, 8vw, 8rem);
+  border-left: 1px solid var(--ink);
+  padding-left: clamp(1rem, 2vw, 2rem);
+}
+
+.workspace-authority-column h3 {
+  margin: 1rem 0 1.25rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 3vw, 3rem);
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.workspace-authority-column > p:not(.eyebrow) {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--serif-body);
+  line-height: 1.3;
+}
+
+.workspace-checkpoint-ledger {
+  margin: 2.5rem 0 0;
+}
+
+.workspace-checkpoint-ledger div {
+  border-top: 1px solid var(--line);
+  padding-block: 0.9rem;
+}
+
+.workspace-checkpoint-ledger dt,
+.workspace-checkpoint-ledger dd {
+  margin: 0;
+}
+
+.workspace-checkpoint-ledger dd {
+  margin-top: 0.45rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.workspace-result {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.72fr) minmax(18rem, 1.28fr);
+  gap: clamp(2rem, 7vw, 9rem);
+  align-items: start;
+}
+
+.workspace-result h2,
+.workspace-result p {
+  margin-top: 0;
+}
+
+.workspace-technologies {
+  margin-left: auto;
+  width: min(100%, 80rem);
+}
+
+.workspace-boundary {
+  border-top: 1px solid var(--ink);
+  padding-top: clamp(2rem, 5vw, 5rem);
+}
+
+.workspace-boundary-note {
+  max-width: 72rem;
+  border-left-color: var(--ink);
+}
+
+.workspace-verification {
+  border-top: 1px solid var(--line);
+  padding-top: clamp(2rem, 5vw, 5rem);
+}
+
+@media (max-width: 42rem) {
+  .workspace-built,
+  .workspace-architecture,
+  .workspace-evidence-layout,
+  .workspace-result {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-architecture-heading {
+    position: static;
+  }
+
+  .workspace-authority-column {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 22rem) {
+  .workspace-page .project-header .display {
+    max-width: 100%;
+    font-size: clamp(2.35rem, 14vw, 3rem);
+    overflow-wrap: anywhere;
+  }
+
+  .workspace-authority-flow li {
+    grid-template-columns: 1fr;
+  }
+}
