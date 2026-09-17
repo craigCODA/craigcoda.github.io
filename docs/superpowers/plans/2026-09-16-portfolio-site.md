@@ -22,9 +22,9 @@
 - `prefers-reduced-motion: reduce` receives the same six aperture states through instantaneous still/text cuts with no scale drift, fades, or masked transitions.
 - Mobile preserves the conceptual aperture with simpler cuts and project-specific crops; it does not reproduce every desktop movement.
 - Use only claims and evidence supported by the handoff, asset manifest, inspected public repositories, or user-supplied public links.
-- Warehouse optimization copy must use exactly `176 pallet positions recovered` and `22 storage bins freed`; never publish or combine the separate `+222 / 26` historical run.
-- Do not publish the supplied `warehouse/warehouse_wh1_bin_map_high_quality.svg`: inspection found the facility label `Warehouse 076 / WH1` and hundreds of specific bin labels (`J01`, `J02`, and so on). Use the generated public-safe result visual instead.
-- Do not publish raw SAP records, internal emails, personnel images, access forms, detailed warehouse records, or confidential NerdLife/client material.
+- Warehouse optimization copy must use exactly `176 pallet positions recovered` and `22 storage bins freed`; never publish or combine the separate deprecated historical warehouse result identified in the private design handoff.
+- Do not publish the supplied excluded raw warehouse map: inspection found a site-identifying title and hundreds of internal location codes. Use the generated public-safe result visual instead.
+- Do not publish source-system record exports, internal emails, personnel images, access forms, detailed warehouse records, or private NerdLife/client material.
 - Treat `generated/skill-evaluation-lab-evidence-map.png` as a captured saved record, not live repository status. Its `0031` evidence-state panel must be captioned accordingly because the inspected public repository currently identifies run `0015` as its completed public run.
 - Workspace copy must say that the large application screen in the saved M2A room checkpoint is a placeholder and must not imply completed live generic Windows surface streaming.
 - PythOS copy must tie `313 verification markers`, `zero drops`, and `CRC 176F4C6E` to the documented target-specific physical evidence path and explicitly avoid a universal hardware-support claim.
@@ -157,7 +157,7 @@ No public Warehouse Optimization source repository, demo URL, or REWORK credenti
 | Project | Public claim | Required boundary | Primary evidence |
 |---|---|---|---|
 | PPK076 | Browser-based 3D warehouse simulation connecting modeled space, local operational data, training, PWA, WebXR, and desktop packaging | Describe supported local export parsing and no SAP return path; do not expose raw warehouse data | First-person forklift, full facility, top-down, rack/floor detail, matched-camera before/after, security boundary |
-| Warehouse optimization | `176 pallet positions recovered`; `22 storage bins freed`; deterministic decision support with human verification authoritative | Never include `+222`, `26 bins`, raw SAP-like records, facility map, or bin identifiers | `generated/warehouse-optimization-verified-result.png` only |
+| Warehouse optimization | `176 pallet positions recovered`; `22 storage bins freed`; deterministic decision support with human verification authoritative | Never include the deprecated historical result pair, source-system rows, the excluded facility map, or internal location codes | `generated/warehouse-optimization-verified-result.png` only |
 | Skill Evaluation Lab | Controlled original/no-skill/candidate conditions, isolated run state, preserved failures, hashes, cross-model replication, and narrowed claims | `0031` image block is a captured saved record, not current public repository status; never imply universal agent improvement | Generated evidence map plus public repository/release methodology |
 | Workspace Environment vNext | Persistent semantic world, host-owned authority, trusted renderer, spatial objects, current M2A room checkpoint | Large application screen is a placeholder in this checkpoint; completed live generic Windows surface streaming is not claimed | Saved M2A room checkpoint |
 | PythOS | From-scratch verification-driven x86-64 OS architecture; UEFI, native PythCore, protected ring-3 work, typed persistent objects, capability-controlled authority, recovery evidence, local package lifecycle, QEMU acceptance | `313 / zero / 176F4C6E` is target-specific physical evidence; separate architecture, verified scope, evidence, and later unfinished work | Physical terminal, architecture/evidence boundary, public evidence map, claim boundary |
@@ -320,7 +320,7 @@ Create `test/assets.test.mjs` to assert:
 1. Every provenance `source` begins with one of `ppk076/`, `generated/`, `workspace/`, or `pythos/`.
 2. Every record has non-empty `original`, `outputStem`, `project`, `roles`, `disclosure`, and `alt` fields.
 3. Every `alt` explains the evidence purpose rather than repeating a filename.
-4. `warehouse/warehouse_wh1_bin_map_high_quality.svg` is absent from the registry and absent from the repository.
+4. The excluded raw warehouse map is absent from the registry and absent from the repository.
 5. The registry contains exactly the 17 approved originals listed below.
 6. Each requested width is less than or equal to the source width, preventing upscaling.
 7. After `npm run assets`, every declared AVIF/WebP derivative exists and is non-empty.
@@ -353,7 +353,7 @@ pythos/pythos_claim_boundary.jpg
 generated/pythos-architecture-evidence-boundary.png
 ```
 
-Use the canonical project folders rather than the duplicate `incoming/` copies. Do not copy either storyboard into the public site and do not copy `warehouse_wh1_bin_map_high_quality.svg`.
+Use the canonical project folders rather than the duplicate `incoming/` copies. Do not copy either storyboard or the excluded raw warehouse map into the public site.
 
 - [ ] **Step 3: Write the complete provenance registry**
 
@@ -573,7 +573,7 @@ assert.match(home, /I BUILD SYSTEMS THAT HAVE TO ANSWER TO REALITY\./);
 assert.match(home, /VERIFIED WORK/);
 assert.match(home, /176 pallet positions recovered/i);
 assert.match(home, /22 storage bins freed/i);
-assert.doesNotMatch(home, /\+?222\b|\b26 (?:storage )?bins\b/i);
+assertNoDeprecatedWarehouseDisclosure(home);
 assert.match(home, /313 verification markers/i);
 assert.match(home, /zero drops/i);
 assert.match(home, /176F4C6E/i);
@@ -663,7 +663,7 @@ Create `home.css` with:
 
 Run: `npm test`
 
-Expected: all tests PASS, including exact `VERIFIED WORK`, `176 / 22`, and absence of `222 / 26`.
+Expected: all tests PASS, including exact `VERIFIED WORK`, `176 / 22`, and absence of the deprecated historical metric pair.
 
 - [ ] **Step 8: Commit the calm homepage structure**
 
@@ -966,7 +966,7 @@ git commit -m "feat: add PPK076 evidence case study"
 **Interfaces:**
 - Produces: `/projects/warehouse-optimization/` with exact verified metrics and all shared headings.
 - Consumes: only the generated public-safe result visual for warehouse-specific media.
-- Enforces: no raw SVG, facility labels, bin IDs, raw SAP records, `222`, or `26 bins` in public output.
+- Enforces: no raw SVG, site-identifying titles, location codes, source-system row exports, or deprecated historical results in public output.
 
 - [ ] **Step 1: Write failing warehouse disclosure tests**
 
@@ -979,7 +979,7 @@ Measured before/after occupancy
 Human verification remained authoritative
 ```
 
-Assert it does not contain `222`, `26 bins`, `WH1`, an internal-bin pattern such as `J01`, or the filename `warehouse_wh1_bin_map_high_quality.svg`.
+Assert it does not contain the deprecated metric pair, site-identifying title, location codes, or excluded raw map filename.
 
 Run: `npm test`
 
@@ -1012,7 +1012,7 @@ npm run build
 npm run audit
 ```
 
-Expected: PASS; no `222 / 26`, internal bin label, or raw SVG reaches `dist/`.
+Expected: PASS; no deprecated historical result, internal location code, or raw SVG reaches `dist/`.
 
 - [ ] **Step 5: Commit the warehouse case study**
 
@@ -1271,7 +1271,7 @@ Do not copy `docs/`, `scripts/`, `test/`, `node_modules/`, the external asset pa
 
 - walk built HTML/CSS/JS/media;
 - reject unresolved internal references;
-- reject `warehouse_wh1_bin_map_high_quality.svg`, `WH1 Bin Location Map`, `+222`, and `26 bins`;
+- reject the excluded warehouse-map filename and title, the deprecated historical result pair, and sensitive operational details;
 - assert exact warehouse result strings;
 - assert the Workspace placeholder sentence;
 - assert target-specific PythOS language;
@@ -1470,7 +1470,7 @@ git commit -m "test: verify portfolio accessibility and performance"
 
 Inspect `git diff origin/main...HEAD --name-only` and `dist/`. Confirm:
 
-- no raw SAP-like export, internal email, personnel image, access form, detailed warehouse map, or NerdLife/client artifact was added;
+- no source-system record export, internal email, personnel image, access form, detailed warehouse map, or NerdLife/client artifact was added;
 - raw warehouse SVG and bin labels are absent;
 - only 176/22 appears for Warehouse Optimization;
 - Workspace has the explicit placeholder/incomplete streaming sentence;
@@ -1482,10 +1482,10 @@ Run:
 
 ```powershell
 npm run audit
-git grep -n -E "\+?222|26 (storage )?bins|WH1 Bin Location Map|J01" -- index.html projects assets
+npm run audit:source
 ```
 
-Expected: audit PASS; grep has no public-site match.
+Expected: both public-output and legacy Pages source audits PASS.
 
 - [ ] **Step 2: Use the required Superpowers completion review**
 

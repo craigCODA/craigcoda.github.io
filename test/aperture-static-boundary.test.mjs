@@ -135,47 +135,50 @@ function responsiveCandidates(attributes) {
 }
 
 function assertResponsiveEvidenceShape(figureBody, provenance) {
-  const media = ['img', 'source'].flatMap((tagName) => openingTags(figureBody, tagName).map((entry) => ({ ...entry, tagName })));
   const images = openingTags(figureBody, 'img');
   const pictures = [...figureBody.matchAll(/<picture\b[^>]*>([\s\S]*?)<\/picture>/gi)];
+  const candidates = [];
 
   assert.equal(images.length, 8, 'aperture must retain its approved eight-image evidence set, including the PythOS hard-cut pair');
-  for (const picture of pictures) assert.match(picture[1], /<img\b/i, 'every aperture picture must contain an image fallback');
-  for (const { attributes, tagName } of media) {
-    const candidates = responsiveCandidates(attributes);
+  assert.equal(pictures.length, 8, 'every aperture evidence image must use exactly one picture');
+  for (const [index, picture] of pictures.entries()) {
+    const pictureImages = openingTags(picture[1], 'img');
+    const sources = openingTags(picture[1], 'source');
+    const deferred = index >= 3;
 
-    assert.match(attributes.get('sizes') ?? '', /(?:\d+(?:vw|px)|\([^)]*\))/i, 'aperture evidence needs a meaningful responsive sizes value');
-    if (tagName === 'img') {
-      const directAttribute = attributes.has('src') ? 'src' : 'data-src';
-      const direct = attributes.get(directAttribute);
+    assert.equal(pictureImages.length, 1, 'every aperture picture must contain one image fallback');
+    assert.equal(sources.length, 2, 'every aperture picture must contain AVIF and WebP sources');
+    assert.deepEqual(sources.map(({ attributes }) => attributes.get('type')), ['image/avif', 'image/webp'], 'aperture sources must be ordered AVIF then WebP');
 
-      assert.ok(direct, 'aperture evidence must retain a direct source or deferred direct source');
-      assert.equal(attributes.get('alt')?.trim().length > 0, true, 'aperture evidence must retain meaningful alt text');
-      assert.equal(attributes.get('decoding'), 'async', 'aperture evidence must decode asynchronously');
-      assert.equal(attributes.get('loading'), 'lazy', 'aperture evidence must retain lazy loading');
-      assert.match(direct, /^\/assets\/evidence\/optimized\/.+-(\d+)w\.(avif|webp)$/i, `invalid direct evidence source: ${direct}`);
-      assert.equal(candidates.some((candidate) => `${candidate.path}-${candidate.width}w.${candidate.extension}` === direct), true, 'direct source must be one of the responsive candidates');
+    const attributes = pictureImages[0].attributes;
+    assert.equal(attributes.has('src'), !deferred, 'only first-state fallbacks may be live');
+    assert.equal(attributes.has('data-src'), deferred, 'later-state fallbacks must remain deferred');
+    assert.equal(attributes.has('srcset') || attributes.has('data-srcset'), false, 'responsive candidates must stay on picture sources');
+    const direct = attributes.get(deferred ? 'data-src' : 'src');
+    const evidence = [...provenance.values()].find((entry) => `/${entry.original}` === direct);
 
-      const directCandidate = candidates.find((candidate) => `${candidate.path}-${candidate.width}w.${candidate.extension}` === direct);
-      const evidence = provenance.get(directCandidate.path.slice(1));
-      assert.equal(attributes.get('width'), String(evidence.sourceWidth), 'aperture image width must match registered provenance');
-      assert.equal(attributes.get('height'), String(evidence.sourceHeight), 'aperture image height must match registered provenance');
-    }
+    assert.ok(evidence, `${direct ?? '<missing source>'} must be the exact registered original fallback`);
+    assert.equal(attributes.get('alt')?.trim().length > 0, true, 'aperture evidence must retain meaningful alt text');
+    assert.equal(attributes.get('alt'), evidence.alt, 'aperture evidence must retain its registered alt text');
+    assert.equal(attributes.get('decoding'), 'async', 'aperture evidence must decode asynchronously');
+    assert.equal(attributes.get('loading'), 'lazy', 'aperture evidence must retain lazy loading');
+    assert.equal(attributes.get('width'), String(evidence.sourceWidth), 'aperture image width must match registered provenance');
+    assert.equal(attributes.get('height'), String(evidence.sourceHeight), 'aperture image height must match registered provenance');
 
-    for (const candidate of candidates) {
-      const evidence = provenance.get(candidate.path.slice(1));
-      assert.ok(evidence, `${candidate.path} must resolve to registered provenance`);
-      assert.equal(evidence.widths.includes(candidate.width), true, `${candidate.path} must use a declared provenance width`);
-      if (attributes.has('type')) assert.equal(attributes.get('type'), `image/${candidate.extension}`, 'source type must match candidate extension');
+    for (const { attributes: sourceAttributes } of sources) {
+      assert.equal(sourceAttributes.has('srcset'), !deferred, 'only first-state picture sources may be live');
+      assert.equal(sourceAttributes.has('data-srcset'), deferred, 'later-state picture sources must remain deferred');
+      assert.match(sourceAttributes.get('sizes') ?? '', /(?:\d+(?:vw|px)|\([^)]*\))/i, 'aperture evidence needs a meaningful responsive sizes value');
+      const sourceCandidates = responsiveCandidates(sourceAttributes);
+      const extension = sourceAttributes.get('type').slice('image/'.length);
+      assert.equal(sourceCandidates.every((candidate) => candidate.path === `/${evidence.outputStem}`), true, 'picture sources must use the fallback evidence stem');
+      assert.equal(sourceCandidates.every((candidate) => candidate.extension === extension), true, 'source type must match every candidate extension');
+      assert.deepEqual(sourceCandidates.map(({ width }) => width), evidence.widths, 'picture source candidates must match every registered responsive width');
+      candidates.push(...sourceCandidates);
     }
   }
 
-  const liveImages = images.slice(0, 3).map(({ attributes }) => attributes);
-  const deferredImages = images.slice(3).map(({ attributes }) => attributes);
-  assert.equal(liveImages.every((attributes) => attributes.has('src') && attributes.has('srcset')), true, 'only the first visual state may use live sources');
-  assert.equal(deferredImages.every((attributes) => !attributes.has('src') && attributes.has('data-src') && attributes.has('data-srcset')), true, 'later visual states must retain deferred sources');
-
-  return media.flatMap(({ attributes }) => responsiveCandidates(attributes));
+  return candidates;
 }
 
 async function assertEvidenceFiles(candidates) {
@@ -273,7 +276,8 @@ function swapFirstTwoFrames(markup) {
 function reorderFirstApertureImageAttributes(markup) {
   const figure = apertureFigure(markup);
   const [firstImage] = openingTags(figure.body, 'img');
-  const order = ['alt', 'height', 'width', 'sizes', 'loading', 'decoding', 'srcset', 'src', 'class'];
+  const order = ['alt', 'height', 'width', 'loading', 'decoding', 'src', 'fetchpriority', 'class']
+    .filter((name) => firstImage.attributes.has(name));
   const reordered = `<img ${order.map((name) => `${name}="${firstImage.attributes.get(name)}"`).join(' ')}>`;
 
   return markup.replace(firstImage.tag, reordered);

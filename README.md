@@ -9,11 +9,12 @@ npm ci
 npm run assets
 npm test
 npm run build
+npm run audit:source
 npm run preview
 npm run check
 ```
 
-`npm run build` creates the allowlisted `dist/` output and audits it. `npm run preview` serves that output locally. `npm run check` is the CI gate: source tests, production build/audit, and browser tests.
+`npm run build` creates the allowlisted `dist/` output and audits it. `npm run audit:source` classifies and scans every Git-tracked or prospective non-ignored file that the legacy root Pages source could publish. `npm run preview` serves the curated build locally. `npm run check` is the CI gate: the complete legacy Pages source audit, source tests, production build/audit, and browser tests.
 
 ## Deployment ownership and safety
 

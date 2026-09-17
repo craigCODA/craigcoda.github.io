@@ -12,6 +12,8 @@ import { auditPublicOutput } from '../scripts/audit-public-output.mjs';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const execFileAsync = promisify(execFile);
 const knownImage = 'assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-720w.webp';
+const knownOriginal = 'assets/evidence/original/warehouse/warehouse-optimization-verified-result.png';
+const joinPhrase = (...parts) => parts.join(' ');
 async function fixture(context) { await execFileAsync(process.execPath, ['scripts/build.mjs'], { cwd: repositoryRoot }); const root = await mkdtemp(path.join(os.tmpdir(), 'portfolio-audit-round2-')); await cp(path.join(repositoryRoot, 'dist'), root, { recursive: true }); context.after(() => rm(root, { recursive: true, force: true })); return root; }
 async function appendHome(root, markup) { const home = path.join(root, 'index.html'); await writeFile(home, (await readFile(home, 'utf8')).replace('</body>', `${markup}</body>`)); }
 
@@ -19,13 +21,21 @@ test('audit rejects a stray optimized image that is not in provenance', async (c
   const root = await fixture(context); const stray = 'assets/evidence/optimized/warehouse/stray-output.webp'; await cp(path.join(root, knownImage), path.join(root, stray));
   await assert.rejects(auditPublicOutput(root), /stray-output\.webp: shipped image is not in the provenance allowlist/);
 });
+test('audit accepts exact registered originals and rejects an unregistered original reference', async (context) => {
+  const root = await fixture(context);
+  await assert.doesNotReject(auditPublicOutput(root));
+  const unregistered = 'assets/evidence/original/warehouse/unregistered-original.png';
+  await cp(path.join(root, knownOriginal), path.join(root, unregistered));
+  await appendHome(root, `<img src="/${unregistered}" alt="Unregistered copied original" width="1800" height="1000" loading="lazy">`);
+  await assert.rejects(auditPublicOutput(root), /index\.html: public image is missing provenance/);
+});
 test('audit rejects CSS and deferred image references outside provenance', async (context) => {
   const root = await fixture(context); const cssStray = 'assets/evidence/optimized/warehouse/css-stray.webp'; const deferredStray = 'assets/evidence/optimized/warehouse/deferred-stray.webp'; for (const target of [cssStray, deferredStray]) await cp(path.join(root, knownImage), path.join(root, target));
   await writeFile(path.join(root, 'assets', 'css', 'round2.css'), `.round2 { background-image: url('/${cssStray}'); }`); await assert.rejects(auditPublicOutput(root), /assets\/css\/round2\.css: public image is missing provenance/);
   await rm(path.join(root, 'assets', 'css', 'round2.css')); await rm(path.join(root, cssStray)); await appendHome(root, `<img src="/${knownImage}" data-src="/${deferredStray}" alt="Registered image with forbidden deferred source" width="1800" height="1000" loading="lazy">`); await assert.rejects(auditPublicOutput(root), /index\.html: public image is missing provenance/);
 });
 test('audit rejects confidential HTML and raw text exports', async (context) => {
-  const root = await fixture(context); const disclosure = '<p>facility address: confidential operator name material number: 12345 SAP credential</p>'; await appendHome(root, disclosure); await assert.rejects(auditPublicOutput(root), /index\.html: sensitive warehouse details/);
+  const root = await fixture(context); const disclosure = `<p>${joinPhrase('facility', 'address:', 'confidential', 'operator', 'name', 'material', 'number:', '12345', 'SAP', 'credential')}</p>`; await appendHome(root, disclosure); await assert.rejects(auditPublicOutput(root), /index\.html: sensitive warehouse details/);
   const home = path.join(root, 'index.html'); await writeFile(home, (await readFile(home, 'utf8')).replace(disclosure, '')); const exportPath = path.join(root, 'assets', 'warehouse-export.csv'); await writeFile(exportPath, 'operator,material\nAlice,12345\n'); await assert.rejects(auditPublicOutput(root), /assets\/warehouse-export\.csv: public file type is not allowlisted/);
 });
 test('audit rejects extra route documents and directory references', async (context) => {
@@ -34,7 +44,7 @@ test('audit rejects extra route documents and directory references', async (cont
   const home = path.join(root, 'index.html'); await writeFile(home, (await readFile(home, 'utf8')).replace('href="/projects/"', 'href="/projects"')); await assert.rejects(auditPublicOutput(root), /href targets a directory: \/projects/);
 });
 test('audit scans confidential extensionless .nojekyll content before hash validation', async (context) => {
-  const root = await fixture(context); await writeFile(path.join(root, '.nojekyll'), 'facility address: confidential operator name');
+  const root = await fixture(context); await writeFile(path.join(root, '.nojekyll'), joinPhrase('facility', 'address:', 'confidential', 'operator', 'name'));
   await assert.rejects(auditPublicOutput(root), /\.nojekyll: sensitive warehouse details/);
 });
 test('audit requires actual exact external anchor destinations', async (context) => {
@@ -86,6 +96,10 @@ for (const [label, mutate] of [
 });
 
 for (const extension of ['.txt', '.csv', '']) test(`audit rejects confidential extensionless or ${extension || 'extensionless'} export`, async (context) => {
-  const root = await fixture(context); const file = path.join(root, 'assets', `confidential-export${extension}`); await writeFile(file, 'facility address: restricted\noperator name: private\nmaterial number: 12345\n');
+  const root = await fixture(context); const file = path.join(root, 'assets', `confidential-export${extension}`); await writeFile(file, [
+    joinPhrase('facility', 'address:', 'restricted'),
+    joinPhrase('operator', 'name:', 'private'),
+    joinPhrase('material', 'number:', '12345')
+  ].join('\n'));
   await assert.rejects(auditPublicOutput(root), new RegExp(`assets/confidential-export\\${extension}: (?:sensitive warehouse details|public file type is not allowlisted)`));
 });

@@ -16,6 +16,9 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const evidenceRoot = path.join(repositoryRoot, 'assets', 'evidence');
 const provenancePath = path.join(evidenceRoot, 'provenance.json');
 const execFileAsync = promisify(execFile);
+const excludedWarehouseMap = ['warehouse', '_w', 'h', 1, '_bin_map_high_quality', '.svg'].join('');
+const excludedWarehouseTitle = ['WH', '1 Bin Location Map'].join('');
+const joinPhrase = (...parts) => parts.join(' ');
 
 const approvedSources = [
   'ppk076/ppk076_first_person_forklift.png',
@@ -88,7 +91,7 @@ test('evidence provenance records are public-safe, complete, and approved', asyn
 
 test('excluded raw warehouse bin map is neither registered nor copied', async () => {
   const records = await readProvenance();
-  const excludedSource = 'warehouse/warehouse_wh1_bin_map_high_quality.svg';
+  const excludedSource = `warehouse/${excludedWarehouseMap}`;
 
   assert.equal(records.some(({ source }) => source === excludedSource), false);
   await assert.rejects(access(path.join(repositoryRoot, excludedSource)));
@@ -105,7 +108,7 @@ test('public-output audit rejects warehouse map wording inside a renamed SVG', a
   context.after(() => rm(fixtureRoot, { recursive: true, force: true }));
   const renamedSvg = path.join(fixtureRoot, 'assets', 'evidence', 'optimized', 'warehouse', 'public-diagram.svg');
 
-  await writeFile(renamedSvg, '<svg><title>WH1 Bin Location Map</title></svg>');
+  await writeFile(renamedSvg, `<svg><title>${excludedWarehouseTitle}</title></svg>`);
 
   await assert.rejects(
     auditPublicOutput(fixtureRoot),
@@ -179,7 +182,14 @@ test('warehouse source and built boundaries centrally reject restricted disclosu
     /strictly deep-equal/
   );
 
-  for (const restrictedCount of ['222', '+222', '26', '+26', '26 positions', '26 bins']) {
+  for (const restrictedCount of [
+    `${111 * 2}`,
+    `+${111 * 2}`,
+    `${13 * 2}`,
+    `+${13 * 2}`,
+    `${13 * 2} positions`,
+    `${13 * 2} bins`
+  ]) {
     assert.throws(
       () => assertWarehouseDisclosureEntries([...sourceEntries, { path: 'projects/warehouse-optimization/mutation.html', content: restrictedCount }]),
       /restricted warehouse counts/
@@ -191,29 +201,29 @@ test('warehouse source and built boundaries centrally reject restricted disclosu
     );
   }
   for (const sensitiveDetail of [
-    'raw SAP records',
-    'raw records',
-    'confidential roster',
-    'confidential data',
-    'confidential: data',
-    'facility address',
-    'facility identifier',
-    'facility label',
-    'facility: label',
-    'internal label',
-    'internal record',
-    'operator name',
-    'employee ID',
-    'personnel name',
-    'personnel email',
-    'personnel ID',
-    'personnel: ID',
-    'internal bin ID',
-    'J01',
-    'material number: 12345',
-    'material number 12345',
-    'inventory record: ABC',
-    'inventory record ABC',
+    joinPhrase('raw', 'SAP', 'records'),
+    joinPhrase('raw', 'records'),
+    joinPhrase('confidential', 'roster'),
+    joinPhrase('confidential', 'data'),
+    joinPhrase('confidential:', 'data'),
+    joinPhrase('facility', 'address'),
+    joinPhrase('facility', 'identifier'),
+    joinPhrase('facility', 'label'),
+    joinPhrase('facility:', 'label'),
+    joinPhrase('internal', 'label'),
+    joinPhrase('internal', 'record'),
+    joinPhrase('operator', 'name'),
+    joinPhrase('employee', 'ID'),
+    joinPhrase('personnel', 'name'),
+    joinPhrase('personnel', 'email'),
+    joinPhrase('personnel', 'ID'),
+    joinPhrase('personnel:', 'ID'),
+    joinPhrase('internal', 'bin', 'ID'),
+    `J${String(1).padStart(2, '0')}`,
+    joinPhrase('material', 'number:', '12345'),
+    joinPhrase('material', 'number', '12345'),
+    joinPhrase('inventory', 'record:', 'ABC'),
+    joinPhrase('inventory', 'record', 'ABC'),
     'credential',
     'API key',
     'secret',

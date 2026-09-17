@@ -87,6 +87,68 @@ test('homepage stays within CSS, JavaScript, aperture-media, and layout-stabilit
   expect(await page.evaluate(() => window.__layoutShiftScore)).toBeLessThan(0.1);
 });
 
+test('deferred aperture pictures promote AVIF and WebP before the original fallback', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'source promotion order and Chromium format selection are viewport-independent');
+  const imageRequests = [];
+  page.on('request', (request) => {
+    if (request.resourceType() === 'image') imageRequests.push(new URL(request.url()).pathname);
+  });
+  await page.addInitScript(() => {
+    window.__picturePromotions = [];
+    for (const [prototype, property] of [
+      [HTMLSourceElement.prototype, 'srcset'],
+      [HTMLImageElement.prototype, 'src']
+    ]) {
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, property);
+      Object.defineProperty(prototype, property, {
+        ...descriptor,
+        set(value) {
+          if (String(value).includes('warehouse-optimization-verified-result')) {
+            window.__picturePromotions.push(`${this.tagName.toLowerCase()}:${this.type || property}`);
+          }
+          descriptor.set.call(this, value);
+        }
+      });
+    }
+  });
+  await page.goto('/');
+
+  const deferredFrame = page.locator('[data-aperture-frame]').nth(1);
+  expect(await deferredFrame.evaluate((frame) => ({
+    sources: [...frame.querySelectorAll('source')].map((source) => ({
+      live: source.hasAttribute('srcset'),
+      deferred: source.hasAttribute('data-srcset')
+    })),
+    image: (() => {
+      const image = frame.querySelector('img');
+      return {
+        live: image.hasAttribute('src'),
+        deferred: image.hasAttribute('data-src'),
+        currentSrc: image.currentSrc
+      };
+    })()
+  }))).toEqual({
+    sources: [
+      { live: false, deferred: true },
+      { live: false, deferred: true }
+    ],
+    image: { live: false, deferred: true, currentSrc: '' }
+  });
+
+  const aperture = page.locator('[data-aperture]');
+  await aperture.scrollIntoViewIfNeeded();
+  await expect(aperture).toHaveAttribute('data-play-count', '1');
+  await expect.poll(() => deferredFrame.locator('img').evaluate((image) => (
+    image.currentSrc ? new URL(image.currentSrc).pathname : ''
+  ))).toMatch(/warehouse-optimization-verified-result-\d+w\.avif$/);
+  expect(await page.evaluate(() => window.__picturePromotions)).toEqual([
+    'source:image/avif',
+    'source:image/webp',
+    'img:src'
+  ]);
+  expect(imageRequests.some((pathname) => pathname.endsWith('/assets/evidence/original/warehouse/warehouse-optimization-verified-result.png'))).toBe(false);
+});
+
 test('homepage gives only its first meaningful visual high priority and reserves media geometry', async ({ page }, testInfo) => {
   test.skip(!['desktop', 'mobile'].includes(testInfo.project.name), 'image loading contracts are evaluated at desktop and mobile source selection');
   await page.goto('/');

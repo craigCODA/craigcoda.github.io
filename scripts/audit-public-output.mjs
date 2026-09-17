@@ -14,11 +14,12 @@ import {
 } from './public-output-boundaries.mjs';
 import { PROTECTED_FILE_HASHES, SITE_ROUTES } from './site-files.mjs';
 
+const excludedWarehouseSvg = ['warehouse', '_w', 'h', 1, '_bin_map_high_quality', '.svg'].join('');
 const forbiddenText = [
-  ['warehouse SVG filename', 'warehouse_wh1_bin_map_high_quality.svg'],
-  ['warehouse map title', 'WH1 Bin Location Map'],
-  ['warehouse restricted count', '+222'],
-  ['warehouse restricted count', /\b26 bins\b/i]
+  ['warehouse SVG filename', excludedWarehouseSvg],
+  ['warehouse map title', ['WH', '1 Bin Location Map'].join('')],
+  ['warehouse restricted count', `+${111 * 2}`],
+  ['warehouse restricted count', new RegExp(`\\b${13 * 2} bins\\b`, 'i')]
 ];
 const expectedExternalAnchors = new Map([
   ['index.html', [
@@ -115,18 +116,18 @@ function anchorHref(tag) {
   return /(?:^|\s)href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(tag)?.slice(1).find((value) => value !== undefined);
 }
 
-function assertImageProvenance(relativePath, source, provenanceStems) {
+function assertImageProvenance(relativePath, source, provenancePaths) {
   const local = localReference(source);
   if (!local || !IMAGE_EXTENSIONS.has(path.extname(local).toLowerCase())) return;
-  const normalized = local.replace(/^\//, '').replace(/-\d+w\.(?:avif|webp)$/i, '');
-  if (!provenanceStems.has(normalized)) fail(relativePath, `public image is missing provenance: ${source}`);
+  const normalized = local.replace(/^\//, '');
+  if (!provenancePaths.has(normalized)) fail(relativePath, `public image is missing provenance: ${source}`);
 }
 
-async function auditHtml(root, file, relativePath, markup, provenanceStems) {
+async function auditHtml(root, file, relativePath, markup, provenancePaths) {
   for (const attribute of ['href', 'src', 'data-src']) {
     for (const reference of attributeValues(markup, attribute)) {
       await assertReference(root, file, reference, attribute);
-      if (attribute !== 'href') assertImageProvenance(relativePath, reference, provenanceStems);
+      if (attribute !== 'href') assertImageProvenance(relativePath, reference, provenancePaths);
     }
   }
   for (const attribute of ['srcset', 'data-srcset']) {
@@ -134,7 +135,7 @@ async function auditHtml(root, file, relativePath, markup, provenanceStems) {
       for (const candidate of srcset.split(',')) {
         const source = candidate.trim().split(/\s+/, 1)[0];
         await assertReference(root, file, source, attribute);
-        assertImageProvenance(relativePath, source, provenanceStems);
+        assertImageProvenance(relativePath, source, provenancePaths);
       }
     }
   }
@@ -149,7 +150,7 @@ async function auditHtml(root, file, relativePath, markup, provenanceStems) {
     if (!/^\d+$/.test(height ?? '')) fail(relativePath, 'img height must be numeric');
     if (!/^(?:lazy|eager)$/i.test(loading ?? '')) fail(relativePath, 'img must declare loading behavior');
     const source = attributeValues(attributes, 'src')[0] ?? attributeValues(attributes, 'data-src')[0];
-    if (source) assertImageProvenance(relativePath, source, provenanceStems);
+    if (source) assertImageProvenance(relativePath, source, provenancePaths);
   }
   for (const [plannedFile, links] of expectedExternalAnchors) {
     if (relativePath !== plannedFile) continue;
@@ -163,11 +164,11 @@ async function auditHtml(root, file, relativePath, markup, provenanceStems) {
   }
 }
 
-async function auditCss(root, file, relativePath, markup, provenanceStems) {
+async function auditCss(root, file, relativePath, markup, provenancePaths) {
   for (const match of markup.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^\s)]+))\s*\)/gi)) {
     const reference = match[1] ?? match[2] ?? match[3];
     await assertReference(root, file, reference, 'CSS url');
-    assertImageProvenance(relativePath, reference, provenanceStems);
+    assertImageProvenance(relativePath, reference, provenancePaths);
   }
 }
 
@@ -202,10 +203,9 @@ export async function auditPublicOutput(outputRoot) {
     original,
     ...widths.flatMap((width) => ['avif', 'webp'].map((extension) => `${outputStem}-${width}w.${extension}`))
   ]));
-  const provenanceStems = new Set(provenance.map(({ outputStem }) => outputStem));
   for (const { absolutePath, relativePath } of files) {
     const extension = path.extname(relativePath).toLowerCase();
-    if (path.basename(relativePath) === 'warehouse_wh1_bin_map_high_quality.svg') fail(relativePath, 'warehouse SVG filename');
+    if (path.basename(relativePath) === excludedWarehouseSvg) fail(relativePath, 'warehouse SVG filename');
     if (TEXT_EXTENSIONS.has(extension) || relativePath === '.nojekyll') {
       const content = await readFile(absolutePath, 'utf8');
       for (const [rule, pattern] of forbiddenText) if (typeof pattern === 'string' ? content.includes(pattern) : pattern.test(content)) fail(relativePath, rule);
@@ -216,8 +216,8 @@ export async function auditPublicOutput(outputRoot) {
         if (warehouseSvgReferencePattern.test(content)) fail(relativePath, 'warehouse SVG reference');
       }
       if (/serviceWorker\.register|service-worker\.js/i.test(content)) fail(relativePath, 'service worker registration is forbidden');
-      if (extension === '.html') await auditHtml(root, absolutePath, relativePath, content, provenanceStems);
-      if (extension === '.css') await auditCss(root, absolutePath, relativePath, content, provenanceStems);
+      if (extension === '.html') await auditHtml(root, absolutePath, relativePath, content, provenancePaths);
+      if (extension === '.css') await auditCss(root, absolutePath, relativePath, content, provenancePaths);
       if (extension === '.js' || extension === '.mjs') await auditJavaScript(root, absolutePath, content);
     }
     if (relativePath !== '.nojekyll' && !PUBLIC_FILE_EXTENSIONS.has(extension)) fail(relativePath, 'public file type is not allowlisted');

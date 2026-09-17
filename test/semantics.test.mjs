@@ -211,23 +211,27 @@ function articles(markup) {
     .map((match) => ({ attributes: parseAttributes(match[1]), body: match[2] }));
 }
 
-function responsiveFallback(attrs) {
-  const src = attrs.get('src') ?? '';
-  const match = src.match(/^\/(assets\/evidence\/optimized\/.+)-(\d+)w\.webp$/);
+function originalFallback(attrs, provenance) {
+  const live = attrs.get('src');
+  const deferred = attrs.get('data-src');
 
-  assert.ok(match, `${src || '<missing src>'} must be a registered responsive WebP fallback`);
-  return { src, stem: match[1], width: Number(match[2]) };
+  assert.notEqual(Boolean(live), Boolean(deferred), 'evidence fallback must use exactly one live or deferred original source');
+  assert.equal(attrs.has('srcset'), false, 'responsive candidates belong on picture sources, not the original fallback');
+  assert.equal(attrs.has('data-srcset'), false, 'deferred responsive candidates belong on picture sources, not the original fallback');
+  const src = live ?? deferred ?? '';
+  const evidence = [...provenance.values()].find((entry) => `/${entry.original}` === src);
+
+  assert.ok(evidence, `${src || '<missing source>'} must be the exact registered original fallback`);
+  return { src, stem: evidence.outputStem, evidence, deferred: Boolean(deferred) };
 }
 
 function assertEvidenceImage(attrs, provenance) {
-  const fallback = responsiveFallback(attrs);
-  const evidence = provenance.get(fallback.stem);
+  const fallback = originalFallback(attrs, provenance);
+  const { evidence } = fallback;
 
-  assert.ok(evidence, `${fallback.stem} must be registered evidence`);
   assert.equal(attrs.get('alt'), evidence.alt, `${fallback.src} must use the registered alt text`);
   assert.equal(attrs.get('width'), String(evidence.sourceWidth), `${fallback.src} must declare its source width`);
   assert.equal(attrs.get('height'), String(evidence.sourceHeight), `${fallback.src} must declare its source height`);
-  assert.equal(evidence.widths.includes(fallback.width), true, `${fallback.src} must use a declared responsive width`);
   assert.equal(attrs.get('decoding'), 'async', `${fallback.src} must decode asynchronously`);
   assert.equal(attrs.get('loading'), 'lazy', `${fallback.src} is below the opening and aperture, so it must lazy-load`);
 
@@ -235,23 +239,25 @@ function assertEvidenceImage(attrs, provenance) {
 }
 
 function assertResponsiveEvidenceImage(attrs, provenance, { opening = false } = {}) {
-  const fallback = responsiveFallback(attrs);
-  const evidence = provenance.get(fallback.stem);
+  const fallback = originalFallback(attrs, provenance);
+  const { evidence } = fallback;
 
-  assert.ok(evidence, `${fallback.stem} must be registered responsive evidence`);
   assert.equal(attrs.get('alt'), evidence.alt, `${fallback.src} must use the registered alt text`);
   assert.equal(attrs.get('width'), String(evidence.sourceWidth), `${fallback.src} must declare its source width`);
   assert.equal(attrs.get('height'), String(evidence.sourceHeight), `${fallback.src} must declare its source height`);
-  assert.equal(evidence.widths.includes(fallback.width), true, `${fallback.src} must use a declared responsive width`);
   assert.equal(attrs.get('decoding'), 'async', `${fallback.src} must decode asynchronously`);
   assert.equal(attrs.get('loading'), opening ? 'eager' : 'lazy', `${fallback.src} must use the correct evidence loading priority`);
 
   return fallback.stem;
 }
 
-function assertResponsiveSourceSet(attrs, provenance, expectedStem) {
+function assertResponsiveSourceSet(attrs, provenance, expectedStem, { deferred = false } = {}) {
   const extension = attrs.get('type')?.match(/^image\/(avif|webp)$/i)?.[1]?.toLowerCase();
-  const srcset = attrs.get('srcset') ?? '';
+  const live = attrs.get('srcset');
+  const deferredSourceSet = attrs.get('data-srcset');
+  assert.notEqual(Boolean(live), Boolean(deferredSourceSet), 'preferred source must use exactly one live or deferred candidate set');
+  assert.equal(Boolean(deferredSourceSet), deferred, `preferred source must be ${deferred ? 'deferred' : 'live'}`);
+  const srcset = live ?? deferredSourceSet ?? '';
   const sizes = attrs.get('sizes') ?? '';
   const evidence = provenance.get(expectedStem);
 
@@ -295,11 +301,9 @@ function assertResponsivePictureEvidence(picture, provenance, { opening = false 
   assert.equal(images.length, 1, 'each responsive picture must include one fallback image');
   assert.equal(sources.length, 2, 'each responsive picture must include AVIF and WebP preferred sources');
   const stem = assertResponsiveEvidenceImage(images[0].attributes, provenance, { opening });
-  const fallback = responsiveFallback(images[0].attributes);
-  const evidence = provenance.get(stem);
-  assert.deepEqual(sources.map(({ attributes }) => attributes.get('type')).sort(), ['image/avif', 'image/webp']);
-  assert.equal(fallback.width, Math.max(...evidence.widths), `${fallback.src} must use the largest registered fallback`);
-  const candidates = sources.flatMap(({ attributes }) => assertResponsiveSourceSet(attributes, provenance, stem));
+  const deferred = images[0].attributes.has('data-src');
+  assert.deepEqual(sources.map(({ attributes }) => attributes.get('type')), ['image/avif', 'image/webp'], 'picture sources must be ordered AVIF then WebP');
+  const candidates = sources.flatMap(({ attributes }) => assertResponsiveSourceSet(attributes, provenance, stem, { deferred }));
 
   return { stem, candidates };
 }
@@ -621,20 +625,21 @@ test('aperture publishes the six authored evidence states without carousel contr
   for (const [index, images] of frameImages.entries()) {
     const stems = images.map((attributes) => {
       const src = attributes.get('src') ?? attributes.get('data-src') ?? '';
-      const match = src.match(/^\/(assets\/evidence\/optimized\/.+)-(\d+)w\.webp$/);
-      assert.ok(match, `frame ${index + 1} must use an optimized WebP evidence candidate`);
-      const evidence = registeredEvidence.get(match[1]);
+      const evidence = [...registeredEvidence.values()].find((entry) => `/${entry.original}` === src);
       assert.ok(evidence, `frame ${index + 1} evidence must be provenance-traced`);
       assert.equal(attributes.get('alt'), evidence.alt, `frame ${index + 1} must retain its registered alt text`);
       assert.equal(attributes.get('width'), String(evidence.sourceWidth));
       assert.equal(attributes.get('height'), String(evidence.sourceHeight));
-      return match[1];
+      return evidence.outputStem;
     });
     assert.deepEqual(stems.sort(), expectedStems[index].slice().sort(), `frame ${index + 1} must use its approved evidence`);
   }
 
-  assert.equal(frameImages[0].every((attributes) => attributes.has('src') && attributes.has('srcset')), true, 'the initial physical-systems state must have live responsive sources');
-  assert.equal(frameImages.slice(1, 5).flat().every((attributes) => !attributes.has('src') && attributes.has('data-src') && attributes.has('data-srcset')), true, 'later visual states must retain deferred responsive candidates');
+  const frameSources = frames.map(({ body }) => openingTags(body, 'source').map(({ attributes }) => attributes));
+  assert.equal(frameImages[0].every((attributes) => attributes.has('src') && !attributes.has('srcset')), true, 'the initial physical-systems state must have live original fallbacks');
+  assert.equal(frameSources[0].every((attributes) => attributes.has('srcset') && !attributes.has('data-srcset')), true, 'the initial physical-systems state must have live responsive picture sources');
+  assert.equal(frameImages.slice(1, 5).flat().every((attributes) => !attributes.has('src') && attributes.has('data-src') && !attributes.has('data-srcset')), true, 'later visual states must retain deferred original fallbacks');
+  assert.equal(frameSources.slice(1, 5).flat().every((attributes) => !attributes.has('srcset') && attributes.has('data-srcset')), true, 'later visual states must retain deferred responsive picture sources');
   assert.match(aperture, /<ol\b[^>]*\bclass=["'][^"']*\baperture-transcript\b[^"']*["'][^>]*>/i, 'aperture must include its complete visually hidden transcript');
   assert.equal(/\baria-live\s*=/i.test(aperture), false, 'aperture must not repeatedly announce state changes');
   assert.equal(/\b(?:carousel|previous|next|arrow|dot|loop)\b/i.test(aperture), false, 'aperture is authored evidence, not a user-controlled carousel');
@@ -710,6 +715,40 @@ test('every current text-link document loads its shared styles and marks its ret
   }));
 });
 
+test('all 32 evidence images use ordered AVIF and WebP sources with exact registered original fallbacks', async () => {
+  const provenanceEntries = JSON.parse(await readFile(provenanceUrl, 'utf8'));
+  const registeredEvidence = new Map(provenanceEntries.map((entry) => [entry.outputStem, entry]));
+  const documents = [
+    { url: indexUrl, count: 15 },
+    { url: ppkUrl, count: 10, eagerPicture: 0 },
+    { url: new URL('../projects/warehouse-optimization/index.html', import.meta.url), count: 1 },
+    { url: skillLabUrl, count: 1 },
+    { url: workspaceUrl, count: 1 },
+    { url: pythosUrl, count: 4 }
+  ];
+  const candidates = [];
+  let imageCount = 0;
+
+  for (const { url, count, eagerPicture } of documents) {
+    const markup = await readFile(url, 'utf8');
+    const evidenceImages = openingTags(markup, 'img').filter(({ attributes }) => (
+      (attributes.get('src') ?? attributes.get('data-src') ?? '').startsWith('/assets/evidence/')
+    ));
+    const evidencePictures = pictures(markup);
+
+    assert.equal(evidenceImages.length, count, `${url.pathname} must retain its approved evidence image count`);
+    assert.equal(evidencePictures.length, count, `${url.pathname} must wrap every evidence image in exactly one picture`);
+    for (const [index, picture] of evidencePictures.entries()) {
+      const pictureEvidence = assertResponsivePictureEvidence(picture, registeredEvidence, { opening: index === eagerPicture });
+      candidates.push(...pictureEvidence.candidates);
+    }
+    imageCount += evidenceImages.length;
+  }
+
+  assert.equal(imageCount, 32);
+  await assertResponsiveCandidateFiles(candidates);
+});
+
 test('PPK076 renders its ten registered PPK evidence records with traced preferred sources and safe public links', async () => {
   const [ppk, provenance] = await Promise.all([
     readFile(ppkUrl, 'utf8'),
@@ -742,9 +781,9 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
   const missingSizes = ppk.replace('sizes="100vw"', '');
   const missingAvifCandidate = ppk.replace('/assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1080w.avif 1080w, ', '');
   const missingWebpCandidate = ppk.replace('/assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1080w.webp 1080w, ', '');
-  const smallerOpeningFallback = ppk.replace(
-    'ppk076_full_facility_oblique-1759w.webp" alt=',
-    'ppk076_full_facility_oblique-640w.webp" alt='
+  const derivativeOpeningFallback = ppk.replace(
+    '/assets/evidence/original/ppk076/ppk076_full_facility_oblique.png" alt=',
+    '/assets/evidence/optimized/ppk076/ppk076_full_facility_oblique-1759w.webp" alt='
   );
 
   assert.throws(
@@ -760,8 +799,8 @@ test('PPK076 renders its ten registered PPK evidence records with traced preferr
     /must declare sizes/
   );
   assert.throws(
-    () => assertResponsivePictureEvidence(pictures(smallerOpeningFallback)[0], registeredPpkEvidence, { opening: true }),
-    /must use the largest registered fallback/
+    () => assertResponsivePictureEvidence(pictures(derivativeOpeningFallback)[0], registeredPpkEvidence, { opening: true }),
+    /must be the exact registered original fallback/
   );
   assert.throws(
     () => assertResponsivePictureEvidence(pictures(missingAvifCandidate)[0], registeredPpkEvidence, { opening: true }),
@@ -961,9 +1000,9 @@ test('warehouse route provides the shared case-study sections and its public-saf
     '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1200w.webp 1200w, ',
     ''
   );
-  const smallerFallback = warehouse.replace(
-    'warehouse-optimization-verified-result-1800w.webp" alt=',
-    'warehouse-optimization-verified-result-1200w.webp" alt='
+  const derivativeFallback = warehouse.replace(
+    '/assets/evidence/original/warehouse/warehouse-optimization-verified-result.png" alt=',
+    '/assets/evidence/optimized/warehouse/warehouse-optimization-verified-result-1800w.webp" alt='
   );
 
   assert.throws(
@@ -979,8 +1018,8 @@ test('warehouse route provides the shared case-study sections and its public-saf
     /candidates must match every registered responsive width/
   );
   assert.throws(
-    () => assertResponsivePictureEvidence(pictures(smallerFallback)[0], registeredEvidence),
-    /must use the largest registered fallback/
+    () => assertResponsivePictureEvidence(pictures(derivativeFallback)[0], registeredEvidence),
+    /must be the exact registered original fallback/
   );
 });
 

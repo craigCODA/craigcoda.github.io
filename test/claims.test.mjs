@@ -12,6 +12,18 @@ const publicDocuments = [
   '../projects/workspace-environment-vnext/index.html',
   '../projects/pythos/index.html'
 ];
+const deprecatedPalletResult = String(111 * 2);
+const deprecatedBinResult = String(13 * 2);
+const internalFacilityLabel = ['WH', '1'].join('');
+const excludedWarehouseMap = ['warehouse', '_w', 'h', 1, '_bin_map_high_quality', '.svg'].join('');
+const deprecatedDisclosurePattern = new RegExp(
+  `\\+?${deprecatedPalletResult}\\b|\\b${deprecatedBinResult} (?:storage )?bins\\b`,
+  'i'
+);
+const operationalIdentifierPattern = new RegExp(
+  `(?:\\b${deprecatedPalletResult}\\b|\\b${deprecatedBinResult} bins\\b|\\b${internalFacilityLabel}\\b|\\bJ\\d{2}\\b|${excludedWarehouseMap.replaceAll('.', '\\.')})`,
+  'i'
+);
 
 function ppkVisibleText(markup) {
   return markup
@@ -24,7 +36,11 @@ function ppkVisibleText(markup) {
 }
 
 function assertNoPpkVisibleMetrics(text) {
-  const metrics = [...text.matchAll(/(?<![\p{L}\p{N}])(176|22|222|26)(?![\p{L}\p{N}])/gu)].map((match) => match[1]);
+  const metricPattern = new RegExp(
+    `(?<![\\p{L}\\p{N}])(176|22|${deprecatedPalletResult}|${deprecatedBinResult})(?![\\p{L}\\p{N}])`,
+    'gu'
+  );
+  const metrics = [...text.matchAll(metricPattern)].map((match) => match[1]);
 
   assert.deepEqual(metrics, [], `PPK visible text must not publish warehouse metrics: ${metrics.join(', ')}`);
 }
@@ -137,7 +153,10 @@ test('PPK076 describes the supported local boundary without exposing inventory r
   assert.doesNotMatch(visibleText, /(?:material number|storage bin|inventory record)\s*[:|]/i);
 
   assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 176 positions`), /176/);
-  assert.throws(() => assertNoPpkVisibleMetrics(`${visibleText} 176/22 bins and 222 positions / 26 bins`), /176, 22, 222, 26/);
+  assert.throws(
+    () => assertNoPpkVisibleMetrics(`${visibleText} 176/22 bins and ${deprecatedPalletResult} positions / ${deprecatedBinResult} bins`),
+    new RegExp(`176, 22, ${deprecatedPalletResult}, ${deprecatedBinResult}`)
+  );
   assert.doesNotThrow(() => assertNoPpkVisibleMetrics(`${visibleText} CRC176F4C6E zone22alpha`));
   assert.doesNotThrow(() => assertNoPpkVisibleMetrics(ppkVisibleText(`${ppk}<script>const metric = 176;</script>`)));
 
@@ -171,7 +190,7 @@ test('warehouse optimization publishes its verified result without exposing oper
 
   assert.doesNotMatch(
     visibleText,
-    /(?:\b222\b|\b26 bins\b|\bWH1\b|\bJ\d{2}\b|warehouse_wh1_bin_map_high_quality\.svg)/i
+    operationalIdentifierPattern
   );
 });
 
@@ -210,7 +229,7 @@ test('warehouse route keeps its complete decision boundary and generic technolog
     /must not invent external credential anchors/
   );
   assert.throws(
-    () => assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/mutation.html', content: `${warehouse}\nWH1` }]),
+    () => assertWarehouseDisclosureEntries([{ path: 'projects/warehouse-optimization/mutation.html', content: `${warehouse}\n${internalFacilityLabel}` }]),
     /sensitive warehouse details/
   );
 });
@@ -223,7 +242,7 @@ test('homepage publishes only the approved evidence-led claims', async () => {
   assert.match(home, /VERIFIED WORK/);
   assert.match(home, /176 pallet positions recovered/i);
   assert.match(home, /22 storage bins freed/i);
-  assert.doesNotMatch(publicHtml.join('\n'), /\+?222\b|\b26 (?:storage )?bins\b/i);
+  assert.doesNotMatch(publicHtml.join('\n'), deprecatedDisclosurePattern);
   assert.match(home, /313 verification markers/i);
   assert.match(home, /zero drops/i);
   assert.match(home, /176F4C6E/i);

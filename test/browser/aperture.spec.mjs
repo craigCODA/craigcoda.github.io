@@ -5,6 +5,25 @@ async function enterAperture(page) {
   await expect(page.locator('[data-aperture]')).toHaveAttribute('data-play-count', '1');
 }
 
+async function topmostPpkEvidenceClass(page) {
+  return page.locator('[data-aperture]').evaluate((aperture) => {
+    const box = aperture.getBoundingClientRect();
+    const element = document.elementFromPoint(box.left + box.width * 0.82, box.top + box.height * 0.2);
+    return element?.className ?? '';
+  });
+}
+
+async function seekPpkEvidenceAnimations(page, elapsed) {
+  await page.locator('.aperture-layer--forklift, .aperture-layer--before, .aperture-layer--after').evaluateAll((layers, currentTime) => {
+    for (const layer of layers) {
+      for (const animation of layer.getAnimations()) {
+        animation.pause();
+        animation.currentTime = currentTime;
+      }
+    }
+  }, elapsed);
+}
+
 test('plays once only after meaningful viewport entry without carousel controls', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -72,12 +91,20 @@ test('keeps mobile aperture vertical and native scrolling', async ({ page }, tes
   expect(await aperture.locator('.aperture-layer--before, .aperture-layer--after').evaluateAll((layers) => (
     layers.map((layer) => {
       const styles = getComputedStyle(layer);
-      return { animationName: styles.animationName, clipPath: styles.clipPath };
+      return { animationName: styles.animationName, fullyClipped: styles.clipPath.includes('100%') };
     })
   ))).toEqual([
-    { animationName: 'none', clipPath: 'none' },
-    { animationName: 'none', clipPath: 'none' }
+    { animationName: 'none', fullyClipped: true },
+    { animationName: 'none', fullyClipped: true }
   ]);
+});
+
+test('uses the PPK forklift as the static first-frame evidence on mobile and reduced motion', async ({ page }, testInfo) => {
+  test.skip(!['mobile', 'reduced-motion'].includes(testInfo.project.name));
+  await page.goto('/');
+  await enterAperture(page);
+
+  expect(await topmostPpkEvidenceClass(page)).toContain('aperture-layer--forklift');
 });
 
 test('uses six actual instant reduced-motion cuts with PythOS still parity', async ({ page }, testInfo) => {
@@ -184,8 +211,22 @@ test('runs and pauses the authored PPK matched-camera cut', async ({ page }, tes
     after.evaluate((element) => getComputedStyle(element).clipPath)
   ]);
   expect(cutClips[0]).not.toBe(pausedClips[0]);
-  expect(cutClips[1]).not.toBe(pausedClips[1]);
+  expect(cutClips[1]).toBe(pausedClips[1]);
+  await expect.poll(() => after.evaluate((element) => getComputedStyle(element).clipPath), { timeout: 2500 }).not.toBe(pausedClips[1]);
   expect(errors).toEqual([]);
+});
+
+test('stages the PPK forklift before the matched-camera before and after evidence', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  await page.goto('/');
+  await enterAperture(page);
+
+  await seekPpkEvidenceAnimations(page, 0);
+  await expect.poll(() => topmostPpkEvidenceClass(page)).toContain('aperture-layer--forklift');
+  await seekPpkEvidenceAnimations(page, 1500);
+  await expect.poll(() => topmostPpkEvidenceClass(page)).toContain('aperture-layer--before');
+  await seekPpkEvidenceAnimations(page, 3000);
+  await expect.poll(() => topmostPpkEvidenceClass(page)).toContain('aperture-layer--after');
 });
 
 test('keeps deferred evidence unloaded until the runtime activates its active and next frames', async ({ page }, testInfo) => {

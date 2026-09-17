@@ -1,11 +1,13 @@
 import { createApertureController } from './aperture-controller.js';
 
 export function hydrateFrame(frameElement) {
+  for (const source of frameElement.querySelectorAll('source[data-srcset]')) {
+    source.srcset = source.dataset.srcset;
+    delete source.dataset.srcset;
+  }
   for (const image of frameElement.querySelectorAll('img[data-src]')) {
     image.src = image.dataset.src;
-    image.srcset = image.dataset.srcset;
     delete image.dataset.src;
-    delete image.dataset.srcset;
   }
 }
 
