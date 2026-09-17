@@ -7,6 +7,7 @@ const indexUrl = new URL('../index.html', import.meta.url);
 const baseCssUrl = new URL('../assets/css/base.css', import.meta.url);
 const tokensCssUrl = new URL('../assets/css/tokens.css', import.meta.url);
 const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
+const apertureCssUrl = new URL('../assets/css/aperture.css', import.meta.url);
 const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
 const ppkUrl = new URL('../projects/ppk076/index.html', import.meta.url);
 const ppkCssUrl = new URL('../assets/css/projects/ppk076.css', import.meta.url);
@@ -177,6 +178,10 @@ function hasDeclaration(rule, property) {
 
 function isRequiredNarrowMediaRule(rule) {
   return rule.atRules.some((atRule) => /^@media\s*\(\s*max-width\s*:\s*42rem\s*\)$/i.test(atRule));
+}
+
+function isHomepageNarrowMediaRule(rule) {
+  return rule.atRules.some((atRule) => /^@media\s*\(\s*max-width\s*:\s*48rem\s*\)$/i.test(atRule));
 }
 
 function assertNoAlternateSkipLinkTransforms(rules) {
@@ -486,47 +491,6 @@ function assertWorkArticleModifiers(workArticles, expectedModifiers) {
   assertNoUnknownProjectModifiers(workArticles, expectedModifiers);
 }
 
-function isDarkBackground(declaration) {
-  return ['background', 'background-color'].includes(declaration.property)
-    && /var\(--(?:charcoal|ink)\)|#(?:111213|1b1d1f)\b/i.test(declaration.value);
-}
-
-function affectsWorkComposition(selector) {
-  return /(?:^|[\s>+~])(?:body|main)\b|\.(?:page-shell|page-main|work-index|work-piece)\b|#(?:main-content|work)\b/.test(selector);
-}
-
-// This deliberately models only source order and !important for identical selector/context
-// background declarations. It is a homepage source contract, not a general CSS cascade engine.
-function effectiveBackgroundDeclarations(rules) {
-  const effective = new Map();
-
-  for (const rule of rules) {
-    for (const selector of rule.selectors) {
-      for (const declaration of rule.declarations) {
-        if (!['background', 'background-color'].includes(declaration.property)) continue;
-
-        const key = `${rule.atRules.join('\u0000')}\u0000${selector}`;
-        const current = effective.get(key);
-        if (!current || !current.declaration.important || declaration.important) {
-          effective.set(key, { selector, atRules: rule.atRules, declaration });
-        }
-      }
-    }
-  }
-
-  return [...effective.values()];
-}
-
-function assertOnlyPythosHasDarkWorkBackground(rules) {
-  const darkWorkBackgrounds = effectiveBackgroundDeclarations(rules)
-    .filter(({ selector, declaration }) => affectsWorkComposition(selector) && isDarkBackground(declaration));
-
-  assert.ok(darkWorkBackgrounds.some(({ selector }) => selector === '.work-piece--pythos'), 'PythOS must retain its dark evidence band');
-  for (const { selector } of darkWorkBackgrounds) {
-    assert.equal(selector, '.work-piece--pythos', `${selector} must not darken non-PythOS work`);
-  }
-}
-
 test('homepage exposes one accessible publication shell', async () => {
   const html = await readFile(indexUrl, 'utf8');
   const skipLinks = openingTags(html, 'a')
@@ -554,13 +518,16 @@ test('homepage presents the evidence-led narrative landmarks in editorial order'
   const landmarks = [
     /I BUILD SYSTEMS THAT HAVE TO ANSWER TO REALITY\./,
     /<section\b[^>]*id=["']aperture["']/i,
-    /I learned physical systems before I learned to abstract them\./,
+    /I learned systems through materials, machines, failure, movement, and consequence before I learned to express them in code\./,
     /<section\b[^>]*id=["']work["'][^>]*>/i,
+    /Five systems\. Five different kinds of proof\./,
     /<section\b[^>]*id=["']verified-work["'][^>]*>/i,
-    /Professional engineering/i,
+    /The credential supports the evidence\. It never replaces it\./,
     /<section\b[^>]*id=["']background["'][^>]*>/i,
-    /What I am building toward/i,
-    /Software \/ AI \/ Systems Engineering/
+    /The software came after the systems\./,
+    /I am building toward software that understands more than screens/i,
+    /<section\b[^>]*id=["']contact["'][^>]*>/i,
+    /Let the work answer first\./
   ];
   let previousOffset = -1;
 
@@ -613,13 +580,10 @@ test('aperture publishes the six authored evidence states without carousel contr
       'assets/evidence/optimized/ppk076/ppk076_inventory_baseline_before_import',
       'assets/evidence/optimized/ppk076/ppk076_inventory_populated_after_import'
     ],
-    ['assets/evidence/optimized/warehouse/warehouse-optimization-verified-result'],
-    ['assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map'],
+    [],
+    [],
     ['assets/evidence/optimized/workspace/workspace_m2a_room_checkpoint'],
-    [
-      'assets/evidence/optimized/pythos/pythos_physical_evidence_terminal',
-      'assets/evidence/optimized/pythos/pythos-architecture-evidence-boundary'
-    ],
+    ['assets/evidence/optimized/pythos/pythos_physical_evidence_terminal'],
     []
   ];
   for (const [index, images] of frameImages.entries()) {
@@ -636,10 +600,14 @@ test('aperture publishes the six authored evidence states without carousel contr
   }
 
   const frameSources = frames.map(({ body }) => openingTags(body, 'source').map(({ attributes }) => attributes));
-  assert.equal(frameImages[0].every((attributes) => attributes.has('src') && !attributes.has('srcset')), true, 'the initial physical-systems state must have live original fallbacks');
-  assert.equal(frameSources[0].every((attributes) => attributes.has('srcset') && !attributes.has('data-srcset')), true, 'the initial physical-systems state must have live responsive picture sources');
-  assert.equal(frameImages.slice(1, 5).flat().every((attributes) => !attributes.has('src') && attributes.has('data-src') && !attributes.has('data-srcset')), true, 'later visual states must retain deferred original fallbacks');
-  assert.equal(frameSources.slice(1, 5).flat().every((attributes) => !attributes.has('srcset') && attributes.has('data-srcset')), true, 'later visual states must retain deferred responsive picture sources');
+  assert.equal(frameImages[0][0].has('src') && !frameImages[0][0].has('data-src'), true, 'the opening physical-systems evidence must retain its live original');
+  assert.equal(frameImages[0].slice(1).every((attributes) => !attributes.has('src') && attributes.has('data-src')), true, 'matched-camera evidence must remain deferred until aperture entry');
+  assert.equal(frameImages.slice(1, 3).flat().length, 0, 'warehouse and agent states must use live HTML proof compositions');
+  assert.equal(frameImages.slice(3, 5).flat().every((attributes) => !attributes.has('src') && attributes.has('data-src') && !attributes.has('data-srcset')), true, 'later image states must retain deferred original evidence');
+  assert.equal(frameSources.flat().length, 0, 'aperture raw evidence must not introduce responsive picture sources');
+  assert.match(frames[1].body, /class=["'][^"']*warehouse-result\b/i, 'warehouse state must render its measured result as live HTML');
+  assert.match(frames[2].body, /class=["'][^"']*run-ledger\b/i, 'agent state must render its preserved run ledger as live HTML');
+  assert.match(frames[5].body, /class=["'][^"']*aperture-visuals--synthesis\b[^"']*["'][^>]*aria-hidden=["']true["']/i, 'synthesis visual must remain decorative');
   assert.match(aperture, /<ol\b[^>]*\bclass=["'][^"']*\baperture-transcript\b[^"']*["'][^>]*>/i, 'aperture must include its complete visually hidden transcript');
   assert.equal(/\baria-live\s*=/i.test(aperture), false, 'aperture must not repeatedly announce state changes');
   assert.equal(/\b(?:carousel|previous|next|arrow|dot|loop)\b/i.test(aperture), false, 'aperture is authored evidence, not a user-controlled carousel');
@@ -653,14 +621,15 @@ test('aperture publishes the six authored evidence states without carousel contr
   }
 });
 
-test('homepage preserves the complete post-aperture physical-systems progression', async () => {
+test('homepage preserves the complete post-aperture systems thesis', async () => {
   const html = await readFile(indexUrl, 'utf8');
-  const thesis = html.match(/<section\b[^>]*class=["'][^"']*\bsystems-thesis\b[^"']*["'][^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
-  const renderedThesis = thesis.replaceAll('&gt;', '>').replace(/\s+/g, ' ').trim();
+  const thesis = html.match(/<section\b[^>]*class=["'][^"']*\bthesis\b[^"']*["'][^>]*>([\s\S]*?)<\/section>/i)?.[1] ?? '';
+  const renderedThesis = visibleText(thesis);
 
-  assert.ok(renderedThesis.includes(
-    'Mechanical work > structural work > electronics > warehouse operations > operational software > AI systems > spatial computing > operating systems'
-  ));
+  assert.match(renderedThesis, /materials, machines, failure, movement, and consequence/i);
+  assert.match(renderedThesis, /State has to correspond to something\./);
+  assert.match(renderedThesis, /Authority has to belong somewhere\./);
+  assert.match(renderedThesis, /Evidence has to survive the demo\./);
 });
 
 test('homepage work section links to all five case-study routes', async () => {
@@ -681,7 +650,7 @@ test('homepage work section links to all five case-study routes', async () => {
 test('homepage uses the registered public destinations and safe external link rel values', async () => {
   const html = await readFile(indexUrl, 'utf8');
   const nav = html.match(/<nav\b[^>]*>([\s\S]*?)<\/nav>/)?.[1] ?? '';
-  const footer = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/)?.[1] ?? '';
+  const contact = sectionBody(html, 'contact');
   const documentLinks = [...openingTags(html, 'link'), ...openingTags(html, 'a')];
   const canonicalLinks = openingTags(html, 'link')
     .filter(({ attributes }) => attributeTokens(attributes, 'rel').has('canonical'));
@@ -695,10 +664,10 @@ test('homepage uses the registered public destinations and safe external link re
   assert.equal(allHrefs.filter((href) => href === 'https://www.linkedin.com/in/Craig-Ramos').length, 1);
   assert.equal(allHrefs.filter((href) => href === 'https://github.com/craigCODA/craigcoda.github.io').length, 1);
   assertLink(nav, 'GitHub', 'https://github.com/craigCODA', { safeExternal: true });
-  assertLink(footer, 'GitHub', 'https://github.com/craigCODA', { safeExternal: true });
-  assertLink(footer, 'Email', 'mailto:mistercraigr@gmail.com');
-  assertLink(footer, 'LinkedIn', 'https://www.linkedin.com/in/Craig-Ramos', { safeExternal: true });
-  assertLink(footer, 'Portfolio source', 'https://github.com/craigCODA/craigcoda.github.io', { safeExternal: true });
+  assertLink(contact, 'GitHub', 'https://github.com/craigCODA', { safeExternal: true });
+  assertLink(contact, 'Email', 'mailto:mistercraigr@gmail.com');
+  assertLink(contact, 'LinkedIn', 'https://www.linkedin.com/in/Craig-Ramos', { safeExternal: true });
+  assertLink(contact, 'Source', 'https://github.com/craigCODA/craigcoda.github.io', { safeExternal: true });
 });
 
 test('every current text-link document loads its shared styles and marks its return control', async () => {
@@ -715,11 +684,14 @@ test('every current text-link document loads its shared styles and marks its ret
   }));
 });
 
-test('all 32 evidence images use ordered AVIF and WebP sources with exact registered original fallbacks', async () => {
+test('homepage raw evidence and all case-study pictures use exact registered originals', async () => {
   const provenanceEntries = JSON.parse(await readFile(provenanceUrl, 'utf8'));
   const registeredEvidence = new Map(provenanceEntries.map((entry) => [entry.outputStem, entry]));
+  const homepage = await readFile(indexUrl, 'utf8');
+  const homepageImages = openingTags(homepage, 'img').filter(({ attributes }) => (
+    (attributes.get('src') ?? attributes.get('data-src') ?? '').startsWith('/assets/evidence/')
+  ));
   const documents = [
-    { url: indexUrl, count: 15 },
     { url: ppkUrl, count: 10, eagerPicture: 0 },
     { url: new URL('../projects/warehouse-optimization/index.html', import.meta.url), count: 1 },
     { url: skillLabUrl, count: 1 },
@@ -727,7 +699,14 @@ test('all 32 evidence images use ordered AVIF and WebP sources with exact regist
     { url: pythosUrl, count: 4 }
   ];
   const candidates = [];
-  let imageCount = 0;
+  let caseStudyImageCount = 0;
+
+  assert.equal(homepageImages.length, 10, 'homepage must retain its approved ten-image raw evidence set');
+  assert.equal(pictures(homepage).length, 0, 'homepage must use raw evidence and live HTML proof compositions without picture wrappers');
+  for (const [index, { attributes }] of homepageImages.entries()) {
+    assertResponsiveEvidenceImage(attributes, registeredEvidence, { opening: index === 0 });
+    assert.equal(attributes.has('fetchpriority'), index === 0, 'only the opening aperture image may receive fetch priority');
+  }
 
   for (const { url, count, eagerPicture } of documents) {
     const markup = await readFile(url, 'utf8');
@@ -742,10 +721,10 @@ test('all 32 evidence images use ordered AVIF and WebP sources with exact regist
       const pictureEvidence = assertResponsivePictureEvidence(picture, registeredEvidence, { opening: index === eagerPicture });
       candidates.push(...pictureEvidence.candidates);
     }
-    imageCount += evidenceImages.length;
+    caseStudyImageCount += evidenceImages.length;
   }
 
-  assert.equal(imageCount, 32);
+  assert.equal(caseStudyImageCount, 17);
   await assertResponsiveCandidateFiles(candidates);
 });
 
@@ -854,50 +833,53 @@ test('warehouse styles reflow the title and decision-flow labels at a true 320-p
   assert.equal(flowRow.get('grid-template-columns'), '1fr');
 });
 
-test('narrow-screen styles give every current link control a 44-pixel touch target', async () => {
-  const css = await readFile(baseCssUrl, 'utf8');
-  const rules = parseCssRules(css);
-  const narrowRules = rules.filter(isRequiredNarrowMediaRule);
-  const textLink = effectiveExactDeclarations(narrowRules, '.text-link');
-  const skipLink = effectiveExactDeclarations(rules, '.skip-link');
-  const focusedSkipLink = effectiveExactDeclarations(rules, '.skip-link:focus');
-  const navLink = effectiveExactDeclarations(rules, '.site-nav a');
-  const footerLink = effectiveExactDeclarations(rules, '.site-footer a');
+test('homepage link controls retain 44-pixel touch targets and keyboard skip behavior', async () => {
+  const [baseCss, homeCss] = await Promise.all([readFile(baseCssUrl, 'utf8'), readFile(homeCssUrl, 'utf8')]);
+  const baseRules = parseCssRules(baseCss);
+  const homeNarrowRules = parseCssRules(homeCss).filter(isHomepageNarrowMediaRule);
+  const skipLink = effectiveExactDeclarations(baseRules, '.skip-link');
+  const focusedSkipLink = effectiveExactDeclarations(baseRules, '.skip-link:focus');
+  const navLink = effectiveExactDeclarations(baseRules, '.site-nav a');
+  const projectLink = effectiveExactDeclarations(homeNarrowRules, '.project-link');
+  const closingLink = effectiveExactDeclarations(homeNarrowRules, '.closing-links a');
+  const openingCue = effectiveExactDeclarations(homeNarrowRules, '.opening-cue');
 
-  assertNoAlternateSkipLinkTransforms(rules);
+  assertNoAlternateSkipLinkTransforms(baseRules);
 
-  assert.equal(textLink.get('display'), 'inline-flex');
-  assert.equal(textLink.get('align-items'), 'center');
-  assert.equal(textLink.get('min-height'), '2.75rem');
-  assert.equal(skipLink.get('display'), 'inline-flex');
-  assert.equal(skipLink.get('align-items'), 'center');
   assert.equal(skipLink.get('min-height'), '2.75rem');
   assert.equal(skipLink.get('transform'), 'translateY(-200%)');
   assert.equal(focusedSkipLink.get('transform'), 'translateY(0)');
   assert.equal(navLink.get('min-height'), '2.75rem');
-  assert.equal(footerLink.get('min-height'), '2.75rem');
+  for (const declarations of [projectLink, closingLink, openingCue]) {
+    assert.equal(declarations.get('display'), 'inline-flex');
+    assert.equal(declarations.get('align-items'), 'center');
+    assert.equal(declarations.get('min-height'), '2.75rem');
+  }
 });
 
-test('homepage major sections resolve to 160–240 pixel fluid editorial gaps', async () => {
-  const [tokensCss, homeCss] = await Promise.all([
+test('homepage major sections resolve to 88–144 pixel fluid editorial rhythm', async () => {
+  const [tokensCss, homeCss, apertureCss] = await Promise.all([
     readFile(tokensCssUrl, 'utf8'),
-    readFile(homeCssUrl, 'utf8')
+    readFile(homeCssUrl, 'utf8'),
+    readFile(apertureCssUrl, 'utf8')
   ]);
   const sectionSpace = effectiveExactDeclarations(parseCssRules(tokensCss), ':root').get('--section-space');
   const resolvedRange = sectionSpace?.match(/^clamp\(\s*([\d.]+)rem\s*,\s*[\d.]+vw\s*,\s*([\d.]+)rem\s*\)$/);
 
   assert.ok(resolvedRange, '--section-space must be a fluid rem-based clamp');
-  assert.equal(Number(resolvedRange[1]) * 16, 160);
-  assert.equal(Number(resolvedRange[2]) * 16, 240);
+  assert.equal(Number(resolvedRange[1]) * 16, 88);
+  assert.equal(Number(resolvedRange[2]) * 16, 144);
 
   const homeRules = parseCssRules(homeCss);
-  for (const selector of ['.aperture-shell', '.systems-thesis', '#work', '#verified-work', '.professional-engineering', '#background', '.direction', '.closing']) {
+  assert.equal(effectiveExactDeclarations(parseCssRules(apertureCss), '.aperture-shell').get('margin-block'), '0 var(--section-space)');
+  for (const selector of ['.thesis', '.verified-work', '.background', '.closing']) {
     assert.equal(
-      effectiveExactDeclarations(homeRules, selector).get('margin-block'),
+      effectiveExactDeclarations(homeRules, selector).get('padding-block'),
       'var(--section-space)',
       `${selector} must consume the fluid major-section gap`
     );
   }
+  assert.equal(effectiveExactDeclarations(homeRules, '.selected-work').get('padding-top'), 'var(--section-space)');
 });
 
 test('work is exactly five semantic evidence articles bound to their routes and registered output stems', async () => {
@@ -919,12 +901,14 @@ test('work is exactly five semantic evidence articles bound to their routes and 
     {
       route: '/projects/warehouse-optimization/',
       modifier: 'work-piece--warehouse',
-      stems: ['assets/evidence/optimized/warehouse/warehouse-optimization-verified-result']
+      stems: [],
+      proofClass: 'warehouse-proof'
     },
     {
       route: '/projects/skill-evaluation-lab/',
       modifier: 'work-piece--skill',
-      stems: ['assets/evidence/optimized/skill-evaluation/skill-evaluation-lab-evidence-map']
+      stems: [],
+      proofClass: 'run-ledger--project'
     },
     {
       route: '/projects/workspace-environment-vnext/',
@@ -944,7 +928,9 @@ test('work is exactly five semantic evidence articles bound to their routes and 
   for (const expected of expectedProjects) {
     const [article] = workArticles.filter(({ attributes }) => projectModifierTokens(attributes).includes(expected.modifier));
 
+    assert.equal(attributeTokens(article.attributes, 'class').has('project'), true, `${expected.modifier} must retain the shared project composition`);
     assert.match(article.body, new RegExp(`<a\\b[^>]*\\bhref=["']${expected.route}["']`, 'i'));
+    if (expected.proofClass) assert.match(article.body, new RegExp(`class=["'][^"']*\\b${expected.proofClass}\\b`, 'i'));
     assert.deepEqual(
       openingTags(article.body, 'img').map(({ attributes }) => assertEvidenceImage(attributes, registeredEvidence)).sort(),
       expected.stems.slice().sort(),
@@ -1127,37 +1113,42 @@ test('every selected work evidence image resolves to provenance with its registe
   const registeredEvidence = new Map(provenance.map((entry) => [entry.outputStem, entry]));
   const images = openingTags(sectionBody(html, 'work'), 'img');
 
-  assert.equal(images.length, 7, 'work evidence should remain the selected seven-image set');
+  assert.equal(images.length, 5, 'work evidence should remain the selected five-image set');
   for (const { attributes } of images) assertEvidenceImage(attributes, registeredEvidence);
 });
 
 test('VERIFIED WORK contains its exact editorial heading and operational authority evidence', async () => {
   const html = await readFile(indexUrl, 'utf8');
   const verifiedWork = sectionBody(html, 'verified-work');
-  const rows = [...verifiedWork.matchAll(/<div\b[^>]*\bclass=["'][^"']*\bverification-row\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi)]
+  const rows = [...verifiedWork.matchAll(/<dl\b[^>]*>[\s\S]*?<\/dl>/gi)][0]?.[0]
+    .matchAll(/<div\b[^>]*>([\s\S]*?)<\/div>/gi);
+  const rowText = [...(rows ?? [])]
     .map((match) => match[1].replace(/\s+/g, ' ').trim());
 
   assert.match(verifiedWork, /<h2\b[^>]*\bid=["']verified-work-title["'][^>]*>\s*VERIFIED WORK\s*<\/h2>/i);
-  assert.equal(rows.length, 2, 'VERIFIED WORK must use two editorial evidence rows');
-  assert.match(rows[0], /PPK076 \+ warehouse decision support/i);
-  assert.match(rows[0], /176 pallet positions recovered/i);
-  assert.match(rows[0], /22 storage bins freed/i);
-  assert.match(rows[0], /deterministic rule boundary/i);
-  assert.match(rows[0], /human verification authority/i);
-  assert.match(rows[1], /Systems \/ PythOS/i);
+  assert.match(verifiedWork, /The credential supports the evidence\. It never replaces it\./i);
+  assert.equal(rowText.length, 3, 'VERIFIED WORK must use three evidence-context rows');
+  assert.match(rowText[0], /Operational systems/i);
+  assert.match(rowText[0], /176 pallet positions recovered/i);
+  assert.match(rowText[0], /22 storage bins freed/i);
+  assert.match(rowText[1], /Physical systems/i);
+  assert.match(rowText[1], /313 verification markers/i);
+  assert.match(rowText[1], /target-specific physical evidence/i);
+  assert.match(rowText[2], /Professional practice/i);
+  assert.match(rowText[2], /React, Node, Git\/PR workflows/i);
 });
 
 test('homepage styles preserve asymmetric editorial compositions without generic card treatment', async () => {
   const [html, homeCss] = await Promise.all([readFile(indexUrl, 'utf8'), readFile(homeCssUrl, 'utf8')]);
   const rules = parseCssRules(homeCss);
   const desktopRules = rules.filter((rule) => rule.atRules.length === 0);
-  const narrowRules = rules.filter(isRequiredNarrowMediaRule);
+  const narrowRules = rules.filter(isHomepageNarrowMediaRule);
   const compositionSelectors = [
-    '.work-piece--ppk',
-    '.work-piece--warehouse',
-    '.work-piece--skill',
-    '.work-piece--workspace',
-    '.work-piece--pythos'
+    '.project--ppk',
+    '.project--warehouse',
+    '.project--skill',
+    '.project--workspace',
+    '.project--pythos'
   ];
 
   for (const selector of compositionSelectors) {
@@ -1165,14 +1156,15 @@ test('homepage styles preserve asymmetric editorial compositions without generic
     assert.equal(effectiveExactDeclarations(narrowRules, selector).get('grid-template-columns'), '1fr', `${selector} must stack as one column on narrow screens`);
   }
 
-  assert.match(effectiveExactDeclarations(desktopRules, '.work-piece--ppk .work-piece__copy').get('padding-top') ?? '', /clamp\(/);
-  assert.match(effectiveExactDeclarations(desktopRules, '.work-piece--skill .work-piece__copy').get('padding-top') ?? '', /clamp\(/);
-  assert.equal(effectiveExactDeclarations(desktopRules, '.work-piece--pythos').get('margin-inline'), 'calc(var(--gutter) * -1)');
-  assert.equal(effectiveExactDeclarations(desktopRules, '.work-piece--pythos').get('background'), 'var(--charcoal)');
+  assert.equal(effectiveExactDeclarations(desktopRules, '.project--ppk .project-copy').get('padding-top'), '1rem');
+  assert.equal(effectiveExactDeclarations(desktopRules, '.project--warehouse').get('background'), 'var(--industrial)');
+  assert.match(effectiveExactDeclarations(desktopRules, '.project--skill').get('gap') ?? '', /^clamp\(/);
+  assert.equal(effectiveExactDeclarations(desktopRules, '.project--workspace').get('background'), '#d6d9d6');
+  assert.equal(effectiveExactDeclarations(desktopRules, '.pythos-machine').get('background'), '#25221e');
 
-  assertOnlyPythosHasDarkWorkBackground(rules);
   assert.equal(/\bcard\b/i.test(html), false, 'homepage markup must not introduce generic card classes');
-  assert.equal(/box-shadow\s*:/i.test(homeCss), false, 'homepage must not use card shadows');
+  const shadowSelectors = rules.filter((rule) => hasDeclaration(rule, 'box-shadow')).flatMap((rule) => rule.selectors);
+  assert.deepEqual(shadowSelectors, ['.run-ledger'], 'only the live evidence ledger may use a document shadow');
   assert.equal(/(?:linear|radial|conic)-gradient\s*\(/i.test(homeCss), false, 'homepage must not use gradients');
   assert.equal(/border-radius\s*:/i.test(homeCss), false, 'homepage must not use rounded-card treatment');
 });
@@ -1187,30 +1179,31 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
   const fourWorkArticles = articles(sectionBody(html, 'work')).slice(0, 4);
   const missingPythosModifier = html.replace('work-piece--pythos', 'work-piece--removed');
   const duplicatePythosModifier = html.replace(
-    'class="work-piece work-piece--skill"',
-    'class="work-piece work-piece--skill work-piece--pythos"'
+    'class="project project--skill work-piece--skill"',
+    'class="project project--skill work-piece--skill work-piece--pythos"'
   );
   const twoExpectedModifiers = html.replace(
-    'class="work-piece work-piece--workspace"',
-    'class="work-piece work-piece--workspace work-piece--skill"'
+    'class="project project--workspace work-piece--workspace"',
+    'class="project project--workspace work-piece--workspace work-piece--skill"'
   );
   const unknownProjectModifier = html.replace(
-    'class="work-piece work-piece--ppk"',
-    'class="work-piece work-piece--ppk work-piece--experimental"'
+    'class="project project--ppk work-piece--ppk"',
+    'class="project project--ppk work-piece--ppk work-piece--experimental"'
   );
-  const eagerBelowFoldImage = html.replace('loading="lazy"', 'loading="eager"');
+  const eagerBelowFoldImage = html.replace(
+    'alt="First-person view inside the modeled Plant 076 production floor with a forklift, pallet load, safety rails, and equipment" loading="lazy"',
+    'alt="First-person view inside the modeled Plant 076 production floor with a forklift, pallet load, safety rails, and equipment" loading="eager"'
+  );
+  const missingWarehouseProof = html.replace('class="warehouse-proof"', 'class="proof-removed"');
+  const missingProjectLedger = html.replace('class="run-ledger run-ledger--project"', 'class="run-ledger"');
   const renamedVerificationHeading = html.replace('VERIFIED WORK', 'VERIFIED SUMMARY');
-  const lightPythosBand = homeCss.replace('background: var(--charcoal)', 'background: var(--paper)');
-  const genericDarkWorkBand = `${homeCss}\n.work-piece { background: var(--charcoal); }`;
-  const importantDarkWorkBand = `${homeCss}\n.work-piece { background: var(--charcoal) !important; }\n.work-piece { background: var(--paper); }`;
-  const laterDarkWorkBand = `${homeCss}\n.work-piece { background: var(--paper); }\n.work-piece { background: var(--charcoal); }`;
-  const bodyDarkBand = `${homeCss}\nbody { background: var(--charcoal); }`;
-  const workBackgroundColor = `${homeCss}\n#work { background-color: var(--charcoal); }`;
-  const compoundAncestorDarkBand = `${homeCss}\n.page-shell .page-main { background: var(--charcoal); }`;
-  const overriddenDarkAncestor = `${homeCss}\n.page-main { background: var(--charcoal); }\n.page-main { background: var(--paper); }`;
-  const repeatedPythosDarkBand = `${homeCss}\n.work-piece--pythos { background: var(--charcoal); }\n.work-piece--pythos { background: var(--charcoal) !important; }`;
-  const unrelatedDarkFooter = `${homeCss}\n.site-footer { background: var(--charcoal); }`;
+  const lightPythosMachine = homeCss.replace('background: #25221e', 'background: var(--paper)');
+  const genericCardShadow = `${homeCss}\n.project { box-shadow: 0 1rem 2rem rgba(0,0,0,.2); }`;
+  const roundedHomepage = `${homeCss}\n.project { border-radius: 1rem; }`;
   const gradientHomepage = `${homeCss}\n.opening { background: linear-gradient(red, blue); }`;
+  const shadowSelectors = (css) => parseCssRules(css)
+    .filter((rule) => hasDeclaration(rule, 'box-shadow'))
+    .flatMap((rule) => rule.selectors);
 
   assert.throws(
     () => assertWorkArticleCount(fourWorkArticles, expectedWorkModifiers),
@@ -1233,44 +1226,33 @@ test('homepage evidence contracts reject targeted fixture mutations', async () =
     /unexpected work modifier work-piece--experimental/
   );
   assert.throws(
-    () => assertEvidenceImage(openingTags(eagerBelowFoldImage, 'img')[0].attributes, registeredEvidence),
+    () => assertEvidenceImage(openingTags(sectionBody(eagerBelowFoldImage, 'work'), 'img')[0].attributes, registeredEvidence),
     /must lazy-load/
+  );
+  assert.throws(
+    () => assert.match(sectionBody(missingWarehouseProof, 'work'), /class=["'][^"']*\bwarehouse-proof\b/),
+    /warehouse-proof/
+  );
+  assert.throws(
+    () => assert.match(sectionBody(missingProjectLedger, 'work'), /class=["'][^"']*\brun-ledger--project\b/),
+    /run-ledger--project/
   );
   assert.throws(
     () => assert.match(sectionBody(renamedVerificationHeading, 'verified-work'), /<h2\b[^>]*>\s*VERIFIED WORK\s*<\/h2>/i),
     /VERIFIED WORK/
   );
   assert.throws(
-    () => assert.equal(effectiveExactDeclarations(parseCssRules(lightPythosBand), '.work-piece--pythos').get('background'), 'var(--charcoal)'),
+    () => assert.equal(effectiveExactDeclarations(parseCssRules(lightPythosMachine), '.pythos-machine').get('background'), '#25221e'),
     /Expected values to be strictly equal/
   );
   assert.throws(
-    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(genericDarkWorkBand)),
-    /work-piece must not darken non-PythOS work/
+    () => assert.deepEqual(shadowSelectors(genericCardShadow), ['.run-ledger']),
+    /Expected values to be strictly deep-equal/
   );
   assert.throws(
-    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(importantDarkWorkBand)),
-    /work-piece must not darken non-PythOS work/
+    () => assert.equal(/border-radius\s*:/i.test(roundedHomepage), false),
+    /Expected values to be strictly equal/
   );
-  assert.throws(
-    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(laterDarkWorkBand)),
-    /work-piece must not darken non-PythOS work/
-  );
-  assert.throws(
-    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(bodyDarkBand)),
-    /body must not darken non-PythOS work/
-  );
-  assert.throws(
-    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(workBackgroundColor)),
-    /#work must not darken non-PythOS work/
-  );
-  assert.throws(
-    () => assertOnlyPythosHasDarkWorkBackground(parseCssRules(compoundAncestorDarkBand)),
-    /page-shell \.page-main must not darken non-PythOS work/
-  );
-  assert.doesNotThrow(() => assertOnlyPythosHasDarkWorkBackground(parseCssRules(overriddenDarkAncestor)));
-  assert.doesNotThrow(() => assertOnlyPythosHasDarkWorkBackground(parseCssRules(repeatedPythosDarkBand)));
-  assert.doesNotThrow(() => assertOnlyPythosHasDarkWorkBackground(parseCssRules(unrelatedDarkFooter)));
   assert.throws(
     () => assert.equal(/(?:linear|radial|conic)-gradient\s*\(/i.test(gradientHomepage), false),
     /Expected values to be strictly equal/

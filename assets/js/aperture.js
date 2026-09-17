@@ -1,15 +1,42 @@
 import { createApertureController } from './aperture-controller.js';
 
+export function hydrateImage(image) {
+  if (!image.hasAttribute('data-src')) return;
+  image.loading = 'eager';
+  image.src = image.dataset.src;
+  delete image.dataset.src;
+}
+
 export function hydrateFrame(frameElement) {
   for (const source of frameElement.querySelectorAll('source[data-srcset]')) {
     source.srcset = source.dataset.srcset;
     delete source.dataset.srcset;
   }
   for (const image of frameElement.querySelectorAll('img[data-src]')) {
-    image.src = image.dataset.src;
-    delete image.dataset.src;
+    hydrateImage(image);
   }
 }
+
+export function observeDeferredEvidence(root = document) {
+  const images = [...root.querySelectorAll('img[data-lazy-evidence][data-src]')];
+  if (images.length === 0) return () => {};
+  if (!('IntersectionObserver' in window)) {
+    images.forEach(hydrateImage);
+    return () => {};
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      hydrateImage(entry.target);
+      observer.unobserve(entry.target);
+    }
+  }, { rootMargin: '600px 0px', threshold: 0.01 });
+  images.forEach((image) => observer.observe(image));
+  return () => observer.disconnect();
+}
+
+observeDeferredEvidence();
 
 const aperture = document.querySelector('[data-aperture]');
 

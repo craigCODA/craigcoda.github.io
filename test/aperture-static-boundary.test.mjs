@@ -7,14 +7,21 @@ const homeCssUrl = new URL('../assets/css/home.css', import.meta.url);
 const apertureCssUrl = new URL('../assets/css/aperture.css', import.meta.url);
 const provenanceUrl = new URL('../assets/evidence/provenance.json', import.meta.url);
 const expectedCopy = [
-  ['I MODEL PHYSICAL SYSTEMS.', 'Physical operations, modeled in software.'],
-  ['I TURN OPERATIONS INTO DECISION SYSTEMS.', '176 pallet positions recovered. 22 storage bins freed.'],
-  ['I TEST WHAT AGENTS ACTUALLY DO.', 'Agents tested against preserved evidence.'],
-  ['I RETHINK HOW THE COMPUTER CAN FEEL.', 'Spatial computing, persistent by design.'],
-  ['I BUILD BELOW THE APPLICATION LAYER.', 'A from-scratch, verification-driven operating system.'],
-  ['PHYSICAL SYSTEMS. SOFTWARE SYSTEMS. AI SYSTEMS. COMPUTER SYSTEMS.', 'I BUILD WHERE THOSE LAYERS MEET.']
+  ['01 / PPK076', 'I MODEL PHYSICAL SYSTEMS.', 'Physical operations, modeled in software.'],
+  ['02 / Warehouse optimization', 'I TURN OPERATIONS INTO DECISION SYSTEMS.', '176 pallet positions recovered. 22 storage bins freed.'],
+  ['03 / Skill Evaluation Lab', 'I TEST WHAT AGENTS ACTUALLY DO.', 'Agents tested against preserved evidence.'],
+  ['04 / Workspace Environment', 'I RETHINK HOW THE COMPUTER CAN FEEL.', 'Spatial computing, persistent by design.'],
+  ['05 / PythOS', 'I BUILD BELOW THE APPLICATION LAYER.', 'A from-scratch, verification-driven operating system.'],
+  ['06 / Synthesis', 'PHYSICAL SYSTEMS. SOFTWARE SYSTEMS. AI SYSTEMS. COMPUTER SYSTEMS.', 'I BUILD WHERE THOSE LAYERS MEET.']
 ];
-const expectedTranscript = expectedCopy.map(([statement, support]) => `${statement} ${support}`);
+const expectedTranscript = [
+  'I model physical systems. Physical operations, modeled in software.',
+  'I turn operations into decision systems. 176 pallet positions recovered. 22 storage bins freed.',
+  'I test what agents actually do. Agents tested against preserved evidence.',
+  'I rethink how the computer can feel. Spatial computing, persistent by design.',
+  'I build below the application layer. A from-scratch, verification-driven operating system.',
+  'Physical systems. Software systems. AI systems. Computer systems. I build where those layers meet.'
+];
 const expectedDurations = ['4000', '3500', '4000', '4000', '4500', '3000'];
 
 function parseAttributes(tag) {
@@ -87,14 +94,35 @@ function copyContainer(frameBody) {
   return { markup: copies[0][0], body: copies[0][2] };
 }
 
+function elementMarkupByClass(markup, tagName, className) {
+  const tags = new RegExp(`</?${tagName}\\b[^>]*>`, 'gi');
+  const matches = [...markup.matchAll(tags)];
+  const openings = matches.filter((match) => (
+    !match[0].startsWith('</')
+    && classTokens(parseAttributes(match[0])).has(className)
+  ));
+
+  assert.equal(openings.length, 1, `expected one .${className} container`);
+  const opening = openings[0];
+  tags.lastIndex = opening.index;
+  let depth = 0;
+  let tag;
+
+  while ((tag = tags.exec(markup))) {
+    depth += tag[0].startsWith('</') ? -1 : 1;
+    if (depth === 0) return markup.slice(opening.index, tags.lastIndex);
+  }
+
+  throw new Error(`.${className} must have a closing ${tagName}`);
+}
+
 function assertExactVisibleCopy(stateFrames) {
   for (const [index, frame] of stateFrames.entries()) {
     const copy = copyContainer(frame.body);
     const paragraphs = [...copy.body.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map((match) => normalizeText(match[1]));
     const copyRemainder = copy.body.replace(/<p\b[^>]*>[\s\S]*?<\/p>/gi, '').trim();
-    const visibleLayers = [...frame.body.matchAll(/<div\b([^>]*)>([\s\S]*?)<\/div>/gi)]
-      .filter((match) => classTokens(parseAttributes(`<div${match[1]}>`)).has('aperture-visuals'));
-    const frameRemainder = normalizeText(visibleLayers.reduce((remaining, layer) => remaining.replace(layer[0], ''), frame.body).replace(copy.markup, ''));
+    const visualMarkup = elementMarkupByClass(frame.body, 'div', 'aperture-visuals');
+    const frameRemainder = normalizeText(frame.body.replace(visualMarkup, '').replace(copy.markup, ''));
 
     assert.deepEqual(paragraphs, expectedCopy[index], `frame ${index + 1} visible copy must be exact and ordered`);
     assert.equal(copyRemainder, '', `frame ${index + 1} copy container must not add visible copy`);
@@ -119,70 +147,41 @@ function openingTags(markup, tagName) {
     .map((match) => ({ tag: match[0], attributes: parseAttributes(match[0]) }));
 }
 
-function responsiveCandidates(attributes) {
-  assert.equal(attributes.has('srcset') && attributes.has('data-srcset'), false, 'a responsive source cannot be both live and deferred');
-  const responsiveAttribute = attributes.has('srcset') ? 'srcset' : 'data-srcset';
-  const value = attributes.get(responsiveAttribute);
-
-  assert.ok(value, 'aperture evidence must declare a responsive candidate set');
-  return value.split(',').map((candidate) => {
-    const match = candidate.trim().match(/^(\/assets\/evidence\/optimized\/.+)-(\d+)w\.(avif|webp)\s+(\d+)w$/i);
-
-    assert.ok(match, `invalid responsive evidence candidate: ${candidate.trim()}`);
-    assert.equal(Number(match[2]), Number(match[4]), 'responsive width descriptor must match its filename');
-    return { path: match[1], width: Number(match[2]), extension: match[3].toLowerCase() };
-  });
-}
-
-function assertResponsiveEvidenceShape(figureBody, provenance) {
+function assertEvidenceShape(figureBody, provenance) {
   const images = openingTags(figureBody, 'img');
   const pictures = [...figureBody.matchAll(/<picture\b[^>]*>([\s\S]*?)<\/picture>/gi)];
-  const candidates = [];
+  const sources = openingTags(figureBody, 'source');
+  const originals = [];
 
-  assert.equal(images.length, 8, 'aperture must retain its approved eight-image evidence set, including the PythOS hard-cut pair');
-  assert.equal(pictures.length, 8, 'every aperture evidence image must use exactly one picture');
-  for (const [index, picture] of pictures.entries()) {
-    const pictureImages = openingTags(picture[1], 'img');
-    const sources = openingTags(picture[1], 'source');
-    const deferred = index >= 3;
+  assert.equal(images.length, 5, 'aperture must retain its five raw evidence images');
+  assert.equal(pictures.length, 0, 'aperture must not wrap raw evidence in responsive pictures');
+  assert.equal(sources.length, 0, 'aperture must not introduce responsive source elements');
+  for (const [index, { attributes }] of images.entries()) {
+    const deferred = index >= 1;
 
-    assert.equal(pictureImages.length, 1, 'every aperture picture must contain one image fallback');
-    assert.equal(sources.length, 2, 'every aperture picture must contain AVIF and WebP sources');
-    assert.deepEqual(sources.map(({ attributes }) => attributes.get('type')), ['image/avif', 'image/webp'], 'aperture sources must be ordered AVIF then WebP');
-
-    const attributes = pictureImages[0].attributes;
-    assert.equal(attributes.has('src'), !deferred, 'only first-state fallbacks may be live');
-    assert.equal(attributes.has('data-src'), deferred, 'later-state fallbacks must remain deferred');
-    assert.equal(attributes.has('srcset') || attributes.has('data-srcset'), false, 'responsive candidates must stay on picture sources');
+    assert.equal(attributes.has('src'), !deferred, 'only the opening evidence may be live');
+    assert.equal(attributes.has('data-src'), deferred, 'all non-opening image evidence must remain deferred');
+    assert.equal(attributes.has('srcset') || attributes.has('data-srcset'), false, 'aperture must use exact raw originals without responsive candidates');
     const direct = attributes.get(deferred ? 'data-src' : 'src');
     const evidence = [...provenance.values()].find((entry) => `/${entry.original}` === direct);
 
-    assert.ok(evidence, `${direct ?? '<missing source>'} must be the exact registered original fallback`);
+    assert.ok(evidence, `${direct ?? '<missing source>'} must be an exact registered original`);
     assert.equal(attributes.get('alt')?.trim().length > 0, true, 'aperture evidence must retain meaningful alt text');
     assert.equal(attributes.get('alt'), evidence.alt, 'aperture evidence must retain its registered alt text');
     assert.equal(attributes.get('decoding'), 'async', 'aperture evidence must decode asynchronously');
-    assert.equal(attributes.get('loading'), 'lazy', 'aperture evidence must retain lazy loading');
+    assert.equal(attributes.get('loading'), index === 0 ? 'eager' : 'lazy', 'aperture evidence must retain its intended eager/lazy delivery');
+    assert.equal(attributes.has('fetchpriority'), index === 0, 'only the opening evidence may receive fetch priority');
+    if (index === 0) assert.equal(attributes.get('fetchpriority'), 'high', 'opening evidence must keep high fetch priority');
     assert.equal(attributes.get('width'), String(evidence.sourceWidth), 'aperture image width must match registered provenance');
     assert.equal(attributes.get('height'), String(evidence.sourceHeight), 'aperture image height must match registered provenance');
-
-    for (const { attributes: sourceAttributes } of sources) {
-      assert.equal(sourceAttributes.has('srcset'), !deferred, 'only first-state picture sources may be live');
-      assert.equal(sourceAttributes.has('data-srcset'), deferred, 'later-state picture sources must remain deferred');
-      assert.match(sourceAttributes.get('sizes') ?? '', /(?:\d+(?:vw|px)|\([^)]*\))/i, 'aperture evidence needs a meaningful responsive sizes value');
-      const sourceCandidates = responsiveCandidates(sourceAttributes);
-      const extension = sourceAttributes.get('type').slice('image/'.length);
-      assert.equal(sourceCandidates.every((candidate) => candidate.path === `/${evidence.outputStem}`), true, 'picture sources must use the fallback evidence stem');
-      assert.equal(sourceCandidates.every((candidate) => candidate.extension === extension), true, 'source type must match every candidate extension');
-      assert.deepEqual(sourceCandidates.map(({ width }) => width), evidence.widths, 'picture source candidates must match every registered responsive width');
-      candidates.push(...sourceCandidates);
-    }
+    originals.push(direct);
   }
 
-  return candidates;
+  return originals;
 }
 
-async function assertEvidenceFiles(candidates) {
-  await Promise.all(candidates.map(({ path, width, extension }) => access(new URL(`../${path.slice(1)}-${width}w.${extension}`, import.meta.url))));
+async function assertEvidenceFiles(originals) {
+  await Promise.all(originals.map((path) => access(new URL(`../${path.slice(1)}`, import.meta.url))));
 }
 
 function matchingBrace(source, openingBrace) {
@@ -258,8 +257,8 @@ function assertScopedDisclosures(markup, stateFrames) {
   const skillScope = `${stateFrames[2].body} ${projectArticle(markup, 'work-piece--skill')}`;
   const workspaceScope = `${stateFrames[3].body} ${projectArticle(markup, 'work-piece--workspace')}`;
 
-  assert.match(skillScope, /captured saved[- ]record/i, 'Skill saved-record disclosure must stay with its aperture frame or project content');
-  assert.match(skillScope, /not a live repository-status display/i, 'Skill disclosure must retain its not-live boundary');
+  assert.match(skillScope, /preserved failures/i, 'Skill evidence must retain the preserved-failure boundary');
+  assert.match(skillScope, /claims narrowed when effects do not reproduce/i, 'Skill disclosure must retain its reproduction boundary');
   assert.match(workspaceScope, /placeholder/i, 'Workspace placeholder disclosure must stay with its aperture frame or project content');
   assert.doesNotMatch(workspaceScope, /\bstream(?:ing)?\b/i, 'Workspace aperture frame and project content must not claim stream completion');
 }
@@ -296,10 +295,10 @@ test('aperture preserves its authored content, evidence, and narrowed runtime bo
   assertFrameOrder(stateFrames);
   assertExactVisibleCopy(stateFrames);
   assertExactTranscript(body);
-  const candidates = assertResponsiveEvidenceShape(body, provenance);
+  const originals = assertEvidenceShape(body, provenance);
   assertRuntimeBoundary(html, aperture, homeCss, apertureCss);
   assertScopedDisclosures(html, stateFrames);
-  await assertEvidenceFiles(candidates);
+  await assertEvidenceFiles(originals);
   await Promise.all(['../assets/js/aperture-controller.js', '../assets/js/aperture.js'].map((relativePath) => access(new URL(relativePath, import.meta.url))));
 });
 
@@ -313,33 +312,35 @@ test('aperture content and runtime-boundary contracts reject targeted mutations'
   const provenance = new Map(provenanceEntries.map((entry) => [entry.outputStem, entry]));
   const changedCopy = html.replace('I MODEL PHYSICAL SYSTEMS.', 'I MODEL VIRTUAL SYSTEMS.');
   const extraVisibleCopy = html.replace('Physical operations, modeled in software.</p>', 'Physical operations, modeled in software.</p><p>Unapproved visible copy.</p>');
-  const changedTranscript = html.replace('I BUILD WHERE THOSE LAYERS MEET.</li>', 'I BUILD WHERE THOSE LAYERS DIFFER.</li>');
-  const badCandidateFormat = html.replace('ppk076_first_person_forklift-640w.webp 640w', 'ppk076_first_person_forklift-640.webp 640w');
-  const badCandidateWidth = html.replace('ppk076_first_person_forklift-640w.webp 640w', 'ppk076_first_person_forklift-640w.webp 641w');
+  const changedTranscript = html.replace('I build where those layers meet.</li>', 'I build where those layers differ.</li>');
+  const badOriginal = html.replace('/assets/evidence/original/ppk076/ppk076_first_person_forklift.png', '/assets/evidence/original/ppk076/unregistered.png');
   const badAlt = html.replace('alt="First-person view inside the modeled Plant 076 production floor with a forklift, pallet load, safety rails, and equipment"', 'alt=""');
   const badImageWidth = html.replace('width="1757" height="915"', 'width="1756" height="915"');
   const badImageHeight = html.replace('width="1757" height="915"', 'width="1757" height="914"');
   const badLoading = html.replace('loading="lazy" decoding="async"', 'loading="eager" decoding="async"');
   const badDecoding = html.replace('loading="lazy" decoding="async"', 'loading="lazy" decoding="sync"');
-  const badSizes = html.replace('sizes="(max-width: 42rem) 100vw, 70vw"', 'sizes=""');
-  const badControl = html.replace('</section>\n\n        <section class="systems-thesis"', '<button type="button">Next</button></section>\n\n        <section class="systems-thesis"');
+  const badOpeningDelivery = html.replace('loading="eager" fetchpriority="high"', 'loading="lazy" fetchpriority="high"');
+  const badDeferredDelivery = html.replace('data-src="/assets/evidence/original/workspace/workspace_m2a_room_checkpoint.png"', 'src="/assets/evidence/original/workspace/workspace_m2a_room_checkpoint.png"');
+  const badResponsiveCandidate = html.replace('class="aperture-layer aperture-layer--forklift"', 'class="aperture-layer aperture-layer--forklift" srcset="/assets/evidence/original/ppk076/ppk076_first_person_forklift.png 1757w"');
+  const badControl = html.replace('<ol class="aperture-transcript"', '<button type="button">Next</button><ol class="aperture-transcript"');
   const badCarouselRole = html.replace('<figure class="aperture" data-aperture>', '<figure class="aperture" data-aperture role="tablist">');
   const badPageScript = html.replace('</body>', '<script type="module">void 0;</script></body>');
-  const badSkillSavedRecord = html.replaceAll('captured saved-record status block', 'captured status block').replaceAll('Captured saved record;', 'Captured record;');
-  const badSkillDisclosure = html.replace('not a live repository-status display.', 'a live repository-status display.');
+  const badSkillSavedRecord = html.replace('Preserved failures.', 'Removed failures.');
+  const badSkillDisclosure = html.replace('Claims narrowed when effects do not reproduce.', 'Claims accepted without reproduction.');
   const badWorkspacePlaceholder = html.replaceAll('placeholder', 'completed checkpoint');
   const badWorkspaceFrameClaim = html.replace('Spatial computing, persistent by design.', 'Streaming is complete.');
-  const badWorkspaceProjectClaim = html.replace('A room is an authority model, not a skin.', 'Streaming is complete.');
+  const badWorkspaceProjectClaim = html.replace('Persistent objects, spatial software surfaces, durable identity, and explicit host authority inside a navigable room.', 'Streaming is complete.');
 
   const shapeMutations = [
-    [badCandidateFormat, /invalid responsive evidence candidate/],
-    [badCandidateWidth, /responsive width descriptor/],
+    [badOriginal, /exact registered original/],
     [badAlt, /meaningful alt text/],
     [badImageWidth, /image width must match/],
     [badImageHeight, /image height must match/],
-    [badLoading, /lazy loading/],
+    [badLoading, /eager\/lazy delivery/],
     [badDecoding, /decode asynchronously/],
-    [badSizes, /meaningful responsive sizes/]
+    [badOpeningDelivery, /eager\/lazy delivery/],
+    [badDeferredDelivery, /opening evidence may be live/],
+    [badResponsiveCandidate, /raw originals without responsive candidates/]
   ];
   const runtimeMutations = [
     [badControl, /interactive controls/],
@@ -358,19 +359,19 @@ test('aperture content and runtime-boundary contracts reject targeted mutations'
   assert.throws(() => assertExactVisibleCopy(frames(changedCopy).stateFrames), /visible copy must be exact and ordered/);
   assert.throws(() => assertExactVisibleCopy(frames(extraVisibleCopy).stateFrames), /visible copy must be exact and ordered/);
   assert.throws(() => assertExactTranscript(frames(changedTranscript).body), /transcript must preserve every state in exact order/);
-  for (const [markup, expectedError] of shapeMutations) assert.throws(() => assertResponsiveEvidenceShape(frames(markup).body, provenance), expectedError);
+  for (const [markup, expectedError] of shapeMutations) assert.throws(() => assertEvidenceShape(frames(markup).body, provenance), expectedError);
   for (const [markup, expectedError] of runtimeMutations) assert.throws(() => assertRuntimeBoundary(markup, apertureFigure(markup).aperture, homeCss, apertureCss), expectedError);
   for (const [css, expectedError] of motionMutations) assert.throws(() => assertRuntimeBoundary(html, apertureFigure(html).aperture, css, apertureCss), expectedError);
-  assert.throws(() => assertScopedDisclosures(badSkillSavedRecord, frames(badSkillSavedRecord).stateFrames), /saved/);
-  assert.throws(() => assertScopedDisclosures(badSkillDisclosure, frames(badSkillDisclosure).stateFrames), /not-live boundary/);
+  assert.throws(() => assertScopedDisclosures(badSkillSavedRecord, frames(badSkillSavedRecord).stateFrames), /preserved-failure boundary/);
+  assert.throws(() => assertScopedDisclosures(badSkillDisclosure, frames(badSkillDisclosure).stateFrames), /reproduction boundary/);
   assert.throws(() => assertScopedDisclosures(badWorkspacePlaceholder, frames(badWorkspacePlaceholder).stateFrames), /placeholder/);
   assert.throws(() => assertScopedDisclosures(badWorkspaceFrameClaim, frames(badWorkspaceFrameClaim).stateFrames), /must not claim stream completion/);
   assert.throws(() => assertScopedDisclosures(badWorkspaceProjectClaim, frames(badWorkspaceProjectClaim).stateFrames), /must not claim stream completion/);
-  assert.doesNotThrow(() => assertResponsiveEvidenceShape(frames(reorderFirstApertureImageAttributes(html)).body, provenance), 'attribute order must not affect aperture evidence parsing');
+  assert.doesNotThrow(() => assertEvidenceShape(frames(reorderFirstApertureImageAttributes(html)).body, provenance), 'attribute order must not affect aperture evidence parsing');
 
-  const candidates = assertResponsiveEvidenceShape(frames(html).body, provenance);
+  const originals = assertEvidenceShape(frames(html).body, provenance);
   await assert.rejects(
-    assertEvidenceFiles([{ ...candidates[0], path: `${candidates[0].path}-missing` }]),
+    assertEvidenceFiles([`${originals[0]}.missing`]),
     /ENOENT/,
     'a provenance-shaped but missing asset must fail the filesystem branch'
   );

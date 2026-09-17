@@ -20,12 +20,12 @@ const APERTURE_STATES = Object.freeze([
   {
     duration: 3500,
     statement: 'I TURN OPERATIONS INTO DECISION SYSTEMS.',
-    evidenceNames: ['Public-safe abstract grid beside the verified result: 176 pallet positions recovered and 22 storage bins freed']
+    evidenceNames: []
   },
   {
     duration: 4000,
     statement: 'I TEST WHAT AGENTS ACTUALLY DO.',
-    evidenceNames: ['Evidence map showing control, isolation, comparison, replication, and hash verification, with a captured saved-record status block']
+    evidenceNames: []
   },
   {
     duration: 4000,
@@ -35,10 +35,7 @@ const APERTURE_STATES = Object.freeze([
   {
     duration: 4500,
     statement: 'I BUILD BELOW THE APPLICATION LAYER.',
-    evidenceNames: [
-      'PythOS evidence terminal running on a physical laptop, with enough screen bezel visible to establish the hardware context',
-      'Architecture and evidence diagram separating governing design, Phase 13 verification, target-specific physical evidence, and later work'
-    ]
+    evidenceNames: ['PythOS evidence terminal running on a physical laptop, with enough screen bezel visible to establish the hardware context']
   },
   {
     duration: 3000,
@@ -216,6 +213,44 @@ test('active aperture evidence has computed accessible names without exposing in
 
   await expect(aperture).toHaveAttribute('data-play-count', '0');
   await expectApertureState(aperture, 0, APERTURE_STATES[0]);
+});
+
+test('homepage proof labels meet normal-text contrast', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'computed colors are viewport-independent');
+  await page.goto('/');
+
+  const samples = await page.evaluate(() => {
+    const channels = (color) => color.match(/[\d.]+/g).slice(0, 3).map(Number);
+    const luminance = (color) => {
+      const linear = channels(color).map((value) => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    };
+    const contrast = (foreground, background) => {
+      const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+      return (values[0] + 0.05) / (values[1] + 0.05);
+    };
+    const targets = [
+      ['warehouse project index', document.querySelector('.project--warehouse .project-index'), document.querySelector('.project--warehouse')],
+      ...[...document.querySelectorAll('.ledger-verdict')].map((element, index) => [
+        `ledger verdict ${index + 1}`,
+        element,
+        element.closest('.run-ledger')
+      ])
+    ];
+
+    return targets.map(([label, foregroundElement, backgroundElement]) => {
+      const foreground = getComputedStyle(foregroundElement).color;
+      const background = getComputedStyle(backgroundElement).backgroundColor;
+      return { label, foreground, background, ratio: contrast(foreground, background) };
+    });
+  });
+
+  for (const sample of samples) {
+    expect(sample.ratio, `${sample.label}: ${sample.foreground} on ${sample.background}`).toBeGreaterThanOrEqual(4.5);
+  }
 });
 
 test('mobile and reduced motion observe all six aperture states once in authored order', async ({ page }, testInfo) => {

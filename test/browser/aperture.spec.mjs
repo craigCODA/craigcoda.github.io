@@ -8,7 +8,7 @@ async function enterAperture(page) {
 async function topmostPpkEvidenceClass(page) {
   return page.locator('[data-aperture]').evaluate((aperture) => {
     const box = aperture.getBoundingClientRect();
-    const element = document.elementFromPoint(box.left + box.width * 0.82, box.top + box.height * 0.2);
+    const element = document.elementFromPoint(box.left + box.width * 0.35, box.top + box.height * 0.2);
     return element?.className ?? '';
   });
 }
@@ -94,8 +94,8 @@ test('keeps mobile aperture vertical and native scrolling', async ({ page }, tes
       return { animationName: styles.animationName, fullyClipped: styles.clipPath.includes('100%') };
     })
   ))).toEqual([
-    { animationName: 'none', fullyClipped: true },
-    { animationName: 'none', fullyClipped: true }
+    { animationName: 'aperture-ppk-before-cut', fullyClipped: true },
+    { animationName: 'aperture-ppk-after-cut', fullyClipped: true }
   ]);
 });
 
@@ -104,7 +104,10 @@ test('uses the PPK forklift as the static first-frame evidence on mobile and red
   await page.goto('/');
   await enterAperture(page);
 
-  expect(await topmostPpkEvidenceClass(page)).toContain('aperture-layer--forklift');
+  const forklift = page.locator('.aperture-layer--forklift');
+  await expect(forklift).toBeVisible();
+  await expect(forklift).toHaveJSProperty('complete', true);
+  expect(await forklift.evaluate((image) => image.naturalWidth)).toBeGreaterThan(0);
 });
 
 test('uses six actual instant reduced-motion cuts with PythOS still parity', async ({ page }, testInfo) => {
@@ -114,6 +117,7 @@ test('uses six actual instant reduced-motion cuts with PythOS still parity', asy
 
   const aperture = page.locator('[data-aperture]');
   await expect(aperture).toHaveAttribute('data-motion', 'reduced');
+  await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto');
   await expect(aperture.locator('.aperture-transcript li')).toHaveCount(6);
   const durations = await aperture.locator('[data-aperture] *').evaluateAll((elements) => elements.map((element) => {
     const styles = getComputedStyle(element);
@@ -134,7 +138,7 @@ test('uses six actual instant reduced-motion cuts with PythOS still parity', asy
     await expect(aperture.locator('[data-aperture-frame]:not([hidden]) .aperture-copy')).toContainText(statements[index]);
     if (index === 4) {
       await expect(page.locator('.aperture-layer--pythos-terminal')).toHaveCSS('opacity', '1');
-      await expect(page.locator('.aperture-layer--pythos-architecture')).toHaveCSS('opacity', '1');
+      await expect(page.locator('.aperture-layer--pythos-terminal')).toHaveAttribute('src', '/assets/evidence/original/pythos/pythos_physical_evidence_terminal.jpg');
     }
     await page.clock.fastForward(duration);
   }
@@ -144,26 +148,20 @@ test('uses six actual instant reduced-motion cuts with PythOS still parity', asy
   await expect(aperture).toHaveAttribute('data-status', 'complete');
 });
 
-test('hard swaps PythOS terminal evidence to its registered architecture artifact at runtime', async ({ page }, testInfo) => {
+test('keeps the registered PythOS terminal as the single runtime evidence image', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
+  await page.clock.install();
   await page.goto('/');
   await enterAperture(page);
-  await page.waitForTimeout(15500);
+  for (const duration of [4000, 3500, 4000, 4000]) await page.clock.fastForward(duration);
   await expect(page.locator('[data-aperture]')).toHaveAttribute('data-frame', '4');
   await expect(page.locator('[data-aperture]')).toHaveAttribute('data-status', 'playing');
 
   const terminal = page.locator('.aperture-layer--pythos-terminal');
-  const architecture = page.locator('.aperture-layer--pythos-architecture');
   await expect(terminal).toHaveCount(1);
-  await expect(architecture).toHaveCount(1);
+  await expect(page.locator('.aperture-layer--pythos-architecture')).toHaveCount(0);
+  await expect(terminal).toHaveAttribute('src', '/assets/evidence/original/pythos/pythos_physical_evidence_terminal.jpg');
   await expect(terminal).toHaveCSS('opacity', '1');
-  await expect(architecture).toHaveCSS('opacity', '0');
-  await expect(terminal).toHaveCSS('transition-duration', '0s');
-  await expect(architecture).toHaveCSS('transition-duration', '0s');
-
-  await page.waitForTimeout(2300);
-  await expect(terminal).toHaveCSS('opacity', '0');
-  await expect(architecture).toHaveCSS('opacity', '1');
 });
 
 test('runs and pauses the authored PPK matched-camera cut', async ({ page }, testInfo) => {
@@ -229,7 +227,7 @@ test('stages the PPK forklift before the matched-camera before and after evidenc
   await expect.poll(() => topmostPpkEvidenceClass(page)).toContain('aperture-layer--after');
 });
 
-test('keeps deferred evidence unloaded until the runtime activates its active and next frames', async ({ page }, testInfo) => {
+test('hydrates only the active and next raw-evidence frames', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   const requests = [];
   page.on('request', (request) => {
@@ -241,7 +239,12 @@ test('keeps deferred evidence unloaded until the runtime activates its active an
     Object.defineProperty(HTMLImageElement.prototype, 'src', {
       ...descriptor,
       set(value) {
-        if (String(value).includes('skill-evaluation-lab-evidence-map')) {
+        if (this.closest('[data-aperture]') && (
+          String(value).includes('ppk076_inventory_baseline_before_import')
+          || String(value).includes('ppk076_inventory_populated_after_import')
+          || String(value).includes('workspace_m2a_room_checkpoint')
+          || String(value).includes('pythos_physical_evidence_terminal')
+        )) {
           window.__deferredPromotions.push({
             frame: this.closest('[data-aperture]')?.dataset.frame ?? null,
             url: String(value)
@@ -254,28 +257,46 @@ test('keeps deferred evidence unloaded until the runtime activates its active an
   await page.clock.install();
   await page.goto('/');
   await page.clock.pauseAt(new Date(Date.now() + 60_000));
-  expect(requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(false);
-  expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
   await page.locator('#work img').evaluateAll((images) => images.forEach((image) => image.remove()));
+  for (const name of [
+    'ppk076_inventory_baseline_before_import',
+    'ppk076_inventory_populated_after_import',
+    'workspace_m2a_room_checkpoint',
+    'pythos_physical_evidence_terminal'
+  ]) expect(requests.some((url) => url.includes(name)), `${name} must remain deferred before entry`).toBe(false);
 
   const aperture = page.locator('[data-aperture]');
   await enterAperture(page);
-  await expect.poll(() => requests.some((url) => url.includes('warehouse-optimization-verified-result')), { timeout: 1000 }).toBe(true);
   await expect(aperture).toHaveAttribute('data-frame', '0');
-  expect(requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(false);
-  expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
-  expect(await page.evaluate(() => window.__deferredPromotions)).toEqual([]);
+  await expect.poll(() => requests.some((url) => url.includes('ppk076_inventory_baseline_before_import'))).toBe(true);
+  await expect.poll(() => requests.some((url) => url.includes('ppk076_inventory_populated_after_import'))).toBe(true);
+  expect(requests.some((url) => url.includes('workspace_m2a_room_checkpoint'))).toBe(false);
+  expect(requests.some((url) => url.includes('pythos_physical_evidence_terminal'))).toBe(false);
+  expect(await page.evaluate(() => window.__deferredPromotions.map(({ frame, url }) => ({ frame, name: url.split('/').pop() })))).toEqual([
+    { frame: '0', name: 'ppk076_inventory_baseline_before_import.png' },
+    { frame: '0', name: 'ppk076_inventory_populated_after_import.png' }
+  ]);
 
-  await page.clock.fastForward(3999);
-  await expect(aperture).toHaveAttribute('data-frame', '0');
-  expect(requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(false);
-  expect(await page.evaluate(() => window.__deferredPromotions)).toEqual([]);
+  await page.clock.fastForward(4000);
+  await page.clock.fastForward(3500);
+  await expect(aperture).toHaveAttribute('data-frame', '2');
+  await expect.poll(() => requests.some((url) => url.includes('workspace_m2a_room_checkpoint'))).toBe(true);
+  expect(requests.some((url) => url.includes('pythos_physical_evidence_terminal'))).toBe(false);
+  expect(await page.evaluate(() => window.__deferredPromotions.map(({ frame, url }) => ({ frame, name: url.split('/').pop() })))).toEqual([
+    { frame: '0', name: 'ppk076_inventory_baseline_before_import.png' },
+    { frame: '0', name: 'ppk076_inventory_populated_after_import.png' },
+    { frame: '2', name: 'workspace_m2a_room_checkpoint.png' }
+  ]);
 
-  await page.clock.fastForward(1);
-  await expect(aperture).toHaveAttribute('data-frame', '1');
-  await expect.poll(() => requests.some((url) => url.includes('skill-evaluation-lab-evidence-map'))).toBe(true);
-  expect(await page.evaluate(() => window.__deferredPromotions.map(({ frame }) => frame))).toEqual(['1']);
-  expect(requests.some((url) => url.includes('pythos-architecture-evidence-boundary'))).toBe(false);
+  await page.clock.fastForward(4000);
+  await expect(aperture).toHaveAttribute('data-frame', '3');
+  await expect.poll(() => requests.some((url) => url.includes('pythos_physical_evidence_terminal'))).toBe(true);
+  expect(await page.evaluate(() => window.__deferredPromotions.map(({ frame, url }) => ({ frame, name: url.split('/').pop() })))).toEqual([
+    { frame: '0', name: 'ppk076_inventory_baseline_before_import.png' },
+    { frame: '0', name: 'ppk076_inventory_populated_after_import.png' },
+    { frame: '2', name: 'workspace_m2a_room_checkpoint.png' },
+    { frame: '3', name: 'pythos_physical_evidence_terminal.jpg' }
+  ]);
 });
 
 test('restores a BFCache pagehide sequence after an ordinary visibility pause', async ({ page }, testInfo) => {
