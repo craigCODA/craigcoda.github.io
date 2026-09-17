@@ -220,9 +220,9 @@ test('active aperture evidence has computed accessible names without exposing in
 
 test('mobile and reduced motion observe all six aperture states once in authored order', async ({ page }, testInfo) => {
   test.skip(!['mobile', 'reduced-motion'].includes(testInfo.project.name), 'state parity is required on mobile and reduced-motion projects');
-  await page.clock.install();
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00.000Z') });
   await page.goto('/');
-  await page.clock.pauseAt(await page.evaluate(() => Date.now()));
+  await page.clock.pauseAt(new Date('2026-01-01T00:01:00.000Z'));
   const aperture = await enterAperture(page);
   const observed = [];
 
