@@ -90,7 +90,7 @@ test('Skill Evaluation Lab keyboard users reach skip, main, and return control w
   await expect(skip).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(page.locator('#main-content')).toBeFocused();
-  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
   const returnHome = page.getByRole('link', { name: 'Return home' });
   await expect(returnHome).toBeFocused();
   await expect(returnHome).toHaveCSS('outline-style', 'solid');

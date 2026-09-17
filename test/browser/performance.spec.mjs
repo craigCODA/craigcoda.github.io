@@ -1,9 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 const KB = 1024;
+const APERTURE_DURATIONS = Object.freeze([4000, 3500, 4000, 4000, 4500, 3000]);
 
 test('homepage stays within CSS, JavaScript, aperture-media, and layout-stability budgets', async ({ page }, testInfo) => {
   test.skip(!['desktop', 'mobile'].includes(testInfo.project.name), 'budgets are defined for desktop and mobile first loads');
+  test.setTimeout(45000);
   await page.addInitScript(() => {
     window.__layoutShiftScore = 0;
     new PerformanceObserver((list) => {
@@ -34,15 +36,54 @@ test('homepage stays within CSS, JavaScript, aperture-media, and layout-stabilit
   expect(bytes.js).toBeLessThan(50 * KB);
   expect(bytes.aperture).toBeLessThan((testInfo.project.name === 'mobile' ? 180 : 450) * KB);
 
-  const deferredSources = await page.locator('[data-aperture-frame][hidden] img[data-src]').evaluateAll((images) => (
-    images.map((image) => new URL(image.dataset.src, location.href).href)
-  ));
+  const preEntry = await page.locator('[data-aperture-frame][hidden]').evaluateAll((frames) => {
+    const parseCandidates = (value, isSrcset) => {
+      if (!value) return [];
+      const entries = isSrcset ? value.split(',').map((candidate) => candidate.trim().split(/\s+/)[0]) : [value];
+      return entries.map((candidate) => new URL(candidate, location.href).href);
+    };
+    const elements = frames.flatMap((frame) => [...frame.querySelectorAll('picture source, picture img, img:not(picture img)')]);
+    const materializedElsewhere = [...document.querySelectorAll('img, source')]
+      .filter((element) => !element.closest('[data-aperture-frame][hidden]'))
+      .flatMap((element) => ['src', 'srcset'].flatMap((attribute) => (
+        parseCandidates(element.getAttribute(attribute), attribute === 'srcset')
+      )));
+    return {
+      elements: elements.map((element) => ({
+        tag: element.tagName.toLowerCase(),
+        currentSrc: element.currentSrc || '',
+        materialized: ['src', 'srcset'].filter((attribute) => element.hasAttribute(attribute)),
+        deferred: ['data-src', 'data-srcset'].filter((attribute) => element.hasAttribute(attribute)),
+        candidates: ['src', 'data-src', 'srcset', 'data-srcset'].flatMap((attribute) => (
+          parseCandidates(element.getAttribute(attribute), attribute.endsWith('srcset'))
+        ))
+      })),
+      materializedElsewhere
+    };
+  });
+  const deferredCandidates = [...new Set(preEntry.elements.flatMap((element) => element.candidates))];
+  const exclusivelyDeferredCandidates = deferredCandidates.filter((candidate) => !preEntry.materializedElsewhere.includes(candidate));
   const requestedBeforeEntry = await page.evaluate(() => performance.getEntriesByType('resource').map((entry) => entry.name));
-  expect(deferredSources.every((source) => requestedBeforeEntry.includes(source))).toBe(false);
+  expect(preEntry.elements.length).toBeGreaterThan(0);
+  expect(preEntry.elements.every((element) => element.deferred.length > 0)).toBe(true);
+  expect(preEntry.elements.every((element) => element.materialized.length === 0 && element.currentSrc === '')).toBe(true);
+  expect(deferredCandidates.length).toBeGreaterThan(0);
+  expect(exclusivelyDeferredCandidates.length).toBeGreaterThan(0);
+  expect(exclusivelyDeferredCandidates.filter((candidate) => requestedBeforeEntry.includes(candidate))).toEqual([]);
 
-  await page.locator('[data-aperture]').scrollIntoViewIfNeeded();
-  await expect(page.locator('[data-aperture]')).toHaveAttribute('data-play-count', '1');
-  await page.waitForTimeout(500);
+  const aperture = page.locator('[data-aperture]');
+  await aperture.scrollIntoViewIfNeeded();
+  await expect(aperture).toHaveAttribute('data-play-count', '1');
+  const layoutShiftScores = [];
+  for (const [index, duration] of APERTURE_DURATIONS.entries()) {
+    await expect(aperture).toHaveAttribute('data-frame', String(index));
+    await page.waitForTimeout(duration + 50);
+    layoutShiftScores.push(await page.evaluate(() => window.__layoutShiftScore));
+  }
+  await expect(aperture).toHaveAttribute('data-status', 'complete');
+  await expect(aperture).toHaveAttribute('data-play-count', '1');
+  expect(APERTURE_DURATIONS.reduce((sum, duration) => sum + duration, 0)).toBe(23000);
+  expect(layoutShiftScores.every((score) => score < 0.1)).toBe(true);
   expect(await page.evaluate(() => window.__layoutShiftScore)).toBeLessThan(0.1);
 });
 
