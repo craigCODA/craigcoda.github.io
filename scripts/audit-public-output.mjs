@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -39,6 +39,16 @@ const expectedExternalAnchors = new Map([
     'https://craigcoda.github.io/pythos/'
   ]]
 ]);
+const allowedOutputDirectories = new Set([
+  '.well-known',
+  'assets', 'assets/css', 'assets/css/projects', 'assets/evidence', 'assets/evidence/optimized',
+  'assets/evidence/optimized/ppk076', 'assets/evidence/optimized/pythos', 'assets/evidence/optimized/skill-evaluation',
+  'assets/evidence/optimized/warehouse', 'assets/evidence/optimized/workspace', 'assets/evidence/original',
+  'assets/evidence/original/ppk076', 'assets/evidence/original/pythos', 'assets/evidence/original/skill-evaluation',
+  'assets/evidence/original/warehouse', 'assets/evidence/original/workspace', 'assets/js', 'projects',
+  'projects/ppk076', 'projects/pythos', 'projects/skill-evaluation-lab', 'projects/warehouse-optimization',
+  'projects/workspace-environment-vnext'
+]);
 
 function displayPath(file) {
   return file.replaceAll('\\', '/');
@@ -51,12 +61,20 @@ function fail(file, rule) {
 async function walk(directory, relativeRoot = directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
+  const directories = [];
   for (const entry of entries) {
     const absolutePath = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await walk(absolutePath, relativeRoot));
+    const relativePath = displayPath(path.relative(relativeRoot, absolutePath));
+    if (entry.isSymbolicLink()) fail(relativePath, 'symbolic link or reparse point is forbidden');
+    if (entry.isDirectory()) {
+      directories.push(relativePath);
+      const nested = await walk(absolutePath, relativeRoot);
+      files.push(...nested.files);
+      directories.push(...nested.directories);
+    }
     if (entry.isFile()) files.push({ absolutePath, relativePath: displayPath(path.relative(relativeRoot, absolutePath)) });
   }
-  return files;
+  return { files, directories };
 }
 
 function isExternal(value) {
@@ -85,6 +103,8 @@ async function assertReference(root, sourceFile, reference, rule) {
     fail(sourceFile, `${rule} does not resolve: ${reference}`);
   }
   if (!targetStat.isFile()) fail(sourceFile, `${rule} targets a directory: ${reference}`);
+  const relativeRealPath = path.relative(await realpath(root), await realpath(target));
+  if (relativeRealPath.startsWith('..') || path.isAbsolute(relativeRealPath)) fail(sourceFile, `${rule} escapes public output: ${reference}`);
 }
 
 function attributeValues(markup, attribute) {
@@ -133,7 +153,7 @@ async function auditHtml(root, file, relativePath, markup, provenanceStems) {
   }
   for (const [plannedFile, links] of expectedExternalAnchors) {
     if (relativePath !== plannedFile) continue;
-    const actual = new Set(Array.from(markup.matchAll(/<a\b[^>]*>/gi))
+    const actual = new Set(Array.from(markup.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<a\b[^>]*>/gi))
       .map((match) => anchorHref(match[0]))
       .filter((href) => /^(?:https?:|mailto:)/i.test(href ?? ''))
       .map((href) => new URL(href).href));
@@ -167,7 +187,7 @@ async function auditProtectedFiles(root) {
 
 export async function auditPublicOutput(outputRoot) {
   const root = path.resolve(outputRoot);
-  const files = await walk(root);
+  const { files, directories } = await walk(root);
   const filePaths = new Set(files.map(({ relativePath }) => relativePath));
   try {
     await stat(path.join(root, 'pythos'));
@@ -212,6 +232,7 @@ export async function auditPublicOutput(outputRoot) {
   for (const entry of await readdir(path.join(root, 'projects'), { withFileTypes: true })) {
     if (entry.isDirectory() && !expectedRouteDocuments.has(`projects/${entry.name}/index.html`)) fail(`projects/${entry.name}`, 'unregistered built route directory');
   }
+  for (const directory of directories) if (!allowedOutputDirectories.has(directory)) fail(directory, 'unexpected output directory');
   const builtRouteDocuments = files.filter(({ relativePath }) => path.extname(relativePath) === '.html' && relativePath !== '404.html')
     .map(({ relativePath }) => relativePath);
   for (const relativePath of builtRouteDocuments) if (!expectedRouteDocuments.has(relativePath)) fail(relativePath, 'unregistered built route');

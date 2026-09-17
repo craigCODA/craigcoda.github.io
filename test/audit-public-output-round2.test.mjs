@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -40,6 +40,39 @@ test('audit scans confidential extensionless .nojekyll content before hash valid
 test('audit requires actual exact external anchor destinations', async (context) => {
   const root = await fixture(context); const ppk = path.join(root, 'projects', 'ppk076', 'index.html'); const markup = await readFile(ppk, 'utf8'); await writeFile(ppk, markup.replace('href="https://github.com/craigCODA/ppk076"', 'href="https://github.com/craigCODA/ppk076-extra"').replace('</body>', '<!-- https://github.com/craigCODA/ppk076 --><a data-href="https://github.com/craigCODA/ppk076">Not an anchor destination</a></body>'));
   await assert.rejects(auditPublicOutput(root), /projects\/ppk076\/index\.html: (?:required external anchor is missing|unexpected external anchor)/);
+});
+
+test('audit rejects a required PPK anchor preserved only in an HTML comment', async (context) => {
+  const root = await fixture(context); const file = path.join(root, 'projects', 'ppk076', 'index.html');
+  await writeFile(file, (await readFile(file, 'utf8')).replace('href="https://github.com/craigCODA/ppk076"', 'href="/"').replace('</body>', '<!-- <a href="https://github.com/craigCODA/ppk076">PPK source</a> --></body>'));
+  await assert.rejects(auditPublicOutput(root), /projects\/ppk076\/index\.html: (?:required external anchor is missing|unexpected external anchor)/);
+});
+
+async function assertLinkedEvidenceTreeIsRejected(context, linkType) {
+  const root = await fixture(context); const outside = await mkdtemp(path.join(os.tmpdir(), 'portfolio-audit-outside-'));
+  context.after(() => rm(outside, { recursive: true, force: true }));
+  const linked = path.join(root, 'assets', 'evidence', 'optimized', 'ppk076'); const target = path.join(outside, 'ppk076');
+  await rename(linked, target); await symlink(target, linked, linkType);
+  await assert.rejects(auditPublicOutput(root), /assets\/evidence\/optimized\/ppk076: symbolic link or reparse point is forbidden/);
+}
+
+test('audit rejects a POSIX symlink-backed evidence tree', async (context) => {
+  if (process.platform === 'win32') return context.skip('POSIX symlink test runs only on POSIX');
+  await assertLinkedEvidenceTreeIsRejected(context, 'dir');
+});
+
+test('audit rejects a Windows junction-backed evidence tree', async (context) => {
+  if (process.platform !== 'win32') return context.skip('Windows junction test runs only on Windows');
+  await assertLinkedEvidenceTreeIsRejected(context, 'junction');
+});
+
+for (const [label, relativeDirectory] of [
+  ['root-level', 'rogue'],
+  ['project-level', 'projects/ppk076/secret'],
+  ['nested evidence', 'assets/evidence/optimized/ppk076/secret']
+]) test(`audit rejects an unexpected empty ${label} output directory`, async (context) => {
+  const root = await fixture(context); await mkdir(path.join(root, relativeDirectory), { recursive: true });
+  await assert.rejects(auditPublicOutput(root), new RegExp(`${relativeDirectory.replaceAll('/', '\\/')}: unexpected output directory`));
 });
 
 for (const [label, mutate] of [
